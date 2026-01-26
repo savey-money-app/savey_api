@@ -2,6 +2,7 @@ from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
+from sqlalchemy import text
 
 from alembic import context
 
@@ -83,7 +84,7 @@ def run_migrations_online() -> None:
 
         with context.begin_transaction():
             # Set search_path before running migrations
-            connection.execute("SET search_path TO savey")
+            connection.execute(text("SET search_path TO savey"))
             context.run_migrations()
 
 
