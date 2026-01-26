@@ -30,7 +30,7 @@ services:
     volumes:
       - .:/app
     environment:
-      DATABASE_URL: postgres://neondb_owner:npg_zOQAHDxvM5h7@ep-green-pine-a2y91p4h-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require&options=-c%20search_path%3Dsavey
+      DATABASE_URL: postgresql://neondb_owner:npg_zOQAHDxvM5h7@ep-green-pine-a2y91p4h-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require&options=-c%20search_path%3Dsavey
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
     depends_on:
       rabbitmq:

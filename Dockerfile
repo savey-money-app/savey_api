@@ -9,6 +9,8 @@ WORKDIR /app
 # Use a venv outside bind-mounted /app to avoid conflicts
 ENV UV_PROJECT_ENVIRONMENT=/opt/venv
 ENV PATH="/opt/venv/bin:${PATH}"
+# Force uv to use the container's Python instead of downloading one
+ENV UV_PYTHON_PREFERENCE=only-system
 
 # Copy lock files first for better Docker layer caching
 COPY pyproject.toml uv.lock ./

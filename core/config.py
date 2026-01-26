@@ -3,7 +3,7 @@ from typing import Optional
 
 class Settings(BaseSettings):
     # Database (Neon PostgreSQL) - Using 'savey' schema
-    DATABASE_URL: str = "postgres://neondb_owner:npg_zOQAHDxvM5h7@ep-green-pine-a2y91p4h-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require&options=-c%20search_path%3Dsavey"
+    DATABASE_URL: str = "postgresql://neondb_owner:npg_zOQAHDxvM5h7@ep-green-pine-a2y91p4h-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require&options=-c%20search_path%3Dsavey"
 
     # JWT Authentication
     SECRET_KEY: str = "your-secret-key-change-this-in-production"
