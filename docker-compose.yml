@@ -13,8 +13,6 @@ services:
       - "15672:15672" # Management UI
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
-    networks:
-      - shared
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
@@ -34,8 +32,6 @@ services:
     environment:
       DATABASE_URL: postgres://neondb_owner:npg_zOQAHDxvM5h7@ep-green-pine-a2y91p4h-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require&options=-c%20search_path%3Dsavey
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
-    networks:
-      - shared
     depends_on:
       rabbitmq:
         condition: service_healthy
