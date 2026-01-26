@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     API_V1_PREFIX: str = "/api/v1"
     PROJECT_NAME: str = "Savey API"
 
+    # Dokploy vars
+
+    DOCKER_CONFIG: str = "docker"
+    APP_NAME: str = "savey_api"
+
     class Config:
         env_file = ".env"
         case_sensitive = True
