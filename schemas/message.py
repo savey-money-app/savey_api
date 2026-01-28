@@ -2,6 +2,7 @@
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 
 
 class MessageCreate(BaseModel):
@@ -12,8 +13,8 @@ class MessageCreate(BaseModel):
 
 class MessageResponse(BaseModel):
     """Schema for message response"""
-    id: str
-    user_id: str
+    id: UUID
+    user_id: UUID
     content: str
     is_user: bool
     created_at: datetime
