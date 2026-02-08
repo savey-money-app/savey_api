@@ -22,7 +22,7 @@ class Transaction(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
 
     amount = Column(Numeric(precision=10, scale=2), nullable=False)
-    category = Column(String, nullable=False)
+    category_id = Column(UUID(as_uuid=True), ForeignKey("categories.id", ondelete="RESTRICT"), nullable=False)
     description = Column(String, nullable=True)
     transaction_type = Column(SQLEnum(TransactionType), nullable=False)
     date = Column(Date, nullable=False)
@@ -32,3 +32,4 @@ class Transaction(Base):
 
     # Relationships
     user = relationship("User", back_populates="transactions")
+    category = relationship("Category", lazy="joined")
