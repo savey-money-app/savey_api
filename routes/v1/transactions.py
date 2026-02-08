@@ -10,14 +10,18 @@ from schemas.transaction import (
     TransactionCreate,
     TransactionUpdate,
     TransactionResponse,
-    TransactionFilter
+    TransactionFilter,
+    TransactionWithBalance,
+    BulkTransactionWithBalance,
+    DeleteWithBalance,
 )
 from services.transaction_service import (
     create_transaction,
     get_transaction_by_id,
     get_user_transactions,
     update_transaction,
-    delete_transaction
+    delete_transaction,
+    calculate_user_balance,
 )
 from services.category_service import get_category_by_id, get_category_by_title, create_category
 from schemas.category import CategoryCreate
@@ -26,7 +30,7 @@ from routes.v1.auth import get_user_internal_or_jwt
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
 
 
-@router.post("", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=TransactionWithBalance, status_code=status.HTTP_201_CREATED)
 def create_new_transaction(
     transaction_data: TransactionCreate,
     current_user_id: str = Depends(get_user_internal_or_jwt),
@@ -42,7 +46,8 @@ def create_new_transaction(
         )
 
     transaction = create_transaction(db, current_user_id, transaction_data)
-    return transaction
+    balance = calculate_user_balance(db, current_user_id)
+    return TransactionWithBalance(transaction=transaction, balance=balance)
 
 
 @router.get("", response_model=List[TransactionResponse])
@@ -139,7 +144,7 @@ def _resolve_or_create_category(db: Session, category_name: str) -> UUID:
     return cat.id
 
 
-@router.post("/bulk", response_model=BulkTransactionResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/bulk", response_model=BulkTransactionWithBalance, status_code=status.HTTP_201_CREATED)
 def create_bulk_transactions(
     payload: BulkTransactionCreate,
     current_user_id: str = Depends(get_user_internal_or_jwt),
@@ -178,10 +183,11 @@ def create_bulk_transactions(
         create_transaction(db, current_user_id, tx_data)
         created += 1
 
-    return BulkTransactionResponse(created_count=created, statement_id=statement_id)
+    balance = calculate_user_balance(db, current_user_id)
+    return BulkTransactionWithBalance(created_count=created, statement_id=statement_id, balance=balance)
 
 
-@router.delete("/{transaction_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{transaction_id}", response_model=DeleteWithBalance, status_code=status.HTTP_200_OK)
 def delete_existing_transaction(
     transaction_id: str,
     current_user_id: str = Depends(get_user_internal_or_jwt),
@@ -195,4 +201,5 @@ def delete_existing_transaction(
             detail="Transaction not found"
         )
 
-    return None
+    balance = calculate_user_balance(db, current_user_id)
+    return DeleteWithBalance(balance=balance)

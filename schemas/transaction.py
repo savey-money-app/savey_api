@@ -50,3 +50,30 @@ class TransactionFilter(BaseModel):
     end_date: Optional[date] = None
     min_amount: Optional[Decimal] = None
     max_amount: Optional[Decimal] = None
+
+
+class UserBalance(BaseModel):
+    """Computed user balance summary"""
+    balance: float
+    monthly_spending: float
+    monthly_limit: float = 0.0
+    daily_spending: float
+    daily_limit: float = 0.0
+
+
+class TransactionWithBalance(BaseModel):
+    """Transaction response with updated balance"""
+    transaction: TransactionResponse
+    balance: UserBalance
+
+
+class BulkTransactionWithBalance(BaseModel):
+    """Bulk transaction response with updated balance"""
+    created_count: int
+    statement_id: Optional[str] = None
+    balance: UserBalance
+
+
+class DeleteWithBalance(BaseModel):
+    """Response after deleting a transaction"""
+    balance: UserBalance

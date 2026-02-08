@@ -1,8 +1,9 @@
 """Transaction service for transaction CRUD and filtering operations"""
+from datetime import date
 from sqlalchemy.orm import Session
-from sqlalchemy import and_
-from models.transaction import Transaction
-from schemas.transaction import TransactionCreate, TransactionUpdate, TransactionFilter
+from sqlalchemy import and_, func
+from models.transaction import Transaction, TransactionType
+from schemas.transaction import TransactionCreate, TransactionUpdate, TransactionFilter, UserBalance
 from typing import List, Optional
 
 
@@ -82,3 +83,40 @@ def delete_transaction(db: Session, transaction_id: str, user_id: str) -> bool:
     db.delete(transaction)
     db.commit()
     return True
+
+
+def calculate_user_balance(db: Session, user_id: str) -> UserBalance:
+    """Compute the user's current balance, monthly spending and daily spending."""
+    today = date.today()
+    first_of_month = today.replace(day=1)
+
+    # Total balance: sum(income) - sum(expense)
+    income_total = db.query(func.coalesce(func.sum(Transaction.amount), 0)).filter(
+        Transaction.user_id == user_id,
+        Transaction.transaction_type == TransactionType.INCOME,
+    ).scalar()
+
+    expense_total = db.query(func.coalesce(func.sum(Transaction.amount), 0)).filter(
+        Transaction.user_id == user_id,
+        Transaction.transaction_type == TransactionType.EXPENSE,
+    ).scalar()
+
+    # Monthly spending (current calendar month)
+    monthly_spending = db.query(func.coalesce(func.sum(Transaction.amount), 0)).filter(
+        Transaction.user_id == user_id,
+        Transaction.transaction_type == TransactionType.EXPENSE,
+        Transaction.date >= first_of_month,
+    ).scalar()
+
+    # Daily spending (today)
+    daily_spending = db.query(func.coalesce(func.sum(Transaction.amount), 0)).filter(
+        Transaction.user_id == user_id,
+        Transaction.transaction_type == TransactionType.EXPENSE,
+        Transaction.date == today,
+    ).scalar()
+
+    return UserBalance(
+        balance=float(income_total) - float(expense_total),
+        monthly_spending=float(monthly_spending),
+        daily_spending=float(daily_spending),
+    )
