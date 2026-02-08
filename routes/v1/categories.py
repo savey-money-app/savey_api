@@ -18,13 +18,13 @@ router = APIRouter(prefix="/categories", tags=["Categories"])
 
 
 @router.get("", response_model=List[CategoryResponse])
-def list_categories(db: Session = Depends(get_db)):
+def list_categories(current_user_id: str = Depends(get_user_internal_or_jwt), db: Session = Depends(get_db)):
     """Get all categories (public endpoint)"""
     return get_all_categories(db)
 
 
 @router.get("/{category_id}", response_model=CategoryResponse)
-def get_category(category_id: str, db: Session = Depends(get_db)):
+def get_category(category_id: str, current_user_id: str = Depends(get_user_internal_or_jwt), db: Session = Depends(get_db)):
     """Get a specific category by ID"""
     category = get_category_by_id(db, category_id)
     if not category:
