@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from uuid import UUID
 from core.database import get_db
 from schemas.transaction import (
     TransactionCreate,
@@ -16,6 +17,7 @@ from services.transaction_service import (
     update_transaction,
     delete_transaction
 )
+from services.category_service import get_category_by_id
 from routes.v1.auth import get_current_user
 
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
@@ -28,6 +30,14 @@ def create_new_transaction(
     db: Session = Depends(get_db)
 ):
     """Create a new transaction"""
+    # Validate category exists
+    category = get_category_by_id(db, str(transaction_data.category_id))
+    if not category:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Category not found"
+        )
+
     transaction = create_transaction(db, current_user_id, transaction_data)
     return transaction
 
@@ -37,7 +47,7 @@ def list_transactions(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
     transaction_type: Optional[str] = None,
-    category: Optional[str] = None,
+    category_id: Optional[UUID] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     current_user_id: str = Depends(get_current_user),
@@ -47,7 +57,7 @@ def list_transactions(
     # Build filters
     filters = TransactionFilter(
         transaction_type=transaction_type,
-        category=category,
+        category_id=category_id,
         start_date=start_date,
         end_date=end_date
     )
@@ -81,6 +91,15 @@ def update_existing_transaction(
     db: Session = Depends(get_db)
 ):
     """Update a transaction"""
+    # Validate category if provided
+    if transaction_data.category_id:
+        category = get_category_by_id(db, str(transaction_data.category_id))
+        if not category:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Category not found"
+            )
+
     transaction = update_transaction(db, transaction_id, current_user_id, transaction_data)
     if not transaction:
         raise HTTPException(
