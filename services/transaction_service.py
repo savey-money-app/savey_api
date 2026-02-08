@@ -1,5 +1,5 @@
 """Transaction service for transaction CRUD and filtering operations"""
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from models.transaction import Transaction
 from schemas.transaction import TransactionCreate, TransactionUpdate, TransactionFilter
@@ -20,7 +20,7 @@ def create_transaction(db: Session, user_id: str, transaction_data: TransactionC
 
 def get_transaction_by_id(db: Session, transaction_id: str, user_id: str) -> Optional[Transaction]:
     """Get transaction by ID for a specific user"""
-    return db.query(Transaction).options(joinedload(Transaction.category)).filter(
+    return db.query(Transaction).filter(
         and_(Transaction.id == transaction_id, Transaction.user_id == user_id)
     ).first()
 
@@ -33,7 +33,7 @@ def get_user_transactions(
     limit: int = 100
 ) -> List[Transaction]:
     """Get all transactions for a user with optional filtering"""
-    query = db.query(Transaction).options(joinedload(Transaction.category)).filter(Transaction.user_id == user_id)
+    query = db.query(Transaction).filter(Transaction.user_id == user_id)
 
     # Apply filters if provided
     if filters:
