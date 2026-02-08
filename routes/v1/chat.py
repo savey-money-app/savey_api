@@ -1,8 +1,12 @@
 """Chat endpoint: publishes to Redis queue, returns full or streamed SSE response"""
 import asyncio
+import base64
 import json
+import mimetypes
 import uuid
 from datetime import datetime
+from pathlib import Path
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -22,6 +26,44 @@ class ChatRequest(BaseModel):
     context: dict | None = None
     hitl_flow_id: str | None = None
     hitl_action: str | None = None
+    file_ids: Optional[List[str]] = None
+
+
+def _resolve_attachments(file_ids: Optional[List[str]]) -> List[dict]:
+    """
+    Resolve file IDs to base64-encoded attachment dicts.
+
+    Each file_id corresponds to a directory under UPLOADS_DIR/{file_id}/
+    containing the uploaded file. The file is read, base64-encoded, and
+    returned as a MessageAttachment-compatible dict.
+    """
+    if not file_ids:
+        return []
+
+    attachments = []
+    for file_id in file_ids:
+        upload_dir = Path(settings.UPLOADS_DIR) / file_id
+        if not upload_dir.exists():
+            raise HTTPException(status_code=404, detail=f"File not found: {file_id}")
+
+        # Find the file inside the uuid directory (there's exactly one)
+        files = list(upload_dir.iterdir())
+        if not files:
+            raise HTTPException(status_code=404, detail=f"File not found: {file_id}")
+
+        filepath = files[0]
+        mime_type, _ = mimetypes.guess_type(str(filepath))
+        mime_type = mime_type or "application/octet-stream"
+
+        data = base64.b64encode(filepath.read_bytes()).decode("utf-8")
+        attachments.append({
+            "data": data,
+            "mime_type": mime_type,
+            "filename": filepath.name,
+            "size": filepath.stat().st_size,
+        })
+
+    return attachments
 
 
 def _build_job(user_id: str, request: ChatRequest) -> tuple[str, dict]:
@@ -35,6 +77,7 @@ def _build_job(user_id: str, request: ChatRequest) -> tuple[str, dict]:
         "context": request.context,
         "hitl_flow_id": request.hitl_flow_id,
         "hitl_action": request.hitl_action,
+        "attachments": _resolve_attachments(request.file_ids),
     }
     return message_id, job
 
