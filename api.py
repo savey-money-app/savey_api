@@ -81,29 +81,28 @@ app.add_middleware(
 )
 
 
-# Startup and shutdown events for RabbitMQ
+# Startup and shutdown events
 @app.on_event("startup")
 async def startup_event():
-    """Initialize RabbitMQ connection on startup"""
-    from services.rabbitmq_service import rabbitmq_service
+    """Initialize Redis connection on startup"""
+    from core.redis import get_redis
     try:
-        await rabbitmq_service.connect()
-        logging.info("RabbitMQ connection established successfully")
+        redis = await get_redis()
+        await redis.ping()
+        logging.info("Redis connection established successfully")
     except Exception as e:
-        logging.error(f"Failed to connect to RabbitMQ: {e}")
-        # Continue running even if RabbitMQ connection fails
-        # The application can still function without RabbitMQ
+        logging.error(f"Failed to connect to Redis: {e}")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Close RabbitMQ connection on shutdown"""
-    from services.rabbitmq_service import rabbitmq_service
+    """Close Redis connection on shutdown"""
+    from core.redis import close_redis
     try:
-        await rabbitmq_service.disconnect()
-        logging.info("RabbitMQ connection closed")
+        await close_redis()
+        logging.info("Redis connection closed")
     except Exception as e:
-        logging.error(f"Error closing RabbitMQ connection: {e}")
+        logging.error(f"Error closing Redis connection: {e}")
 
 
 app.include_router(router)

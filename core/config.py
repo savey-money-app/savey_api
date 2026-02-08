@@ -10,7 +10,12 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
-    # RabbitMQ
+    # Redis (chat queue + pubsub)
+    REDIS_URL: str = "redis://redis:6379"
+    REDIS_CHAT_QUEUE: str = "chat_queue"
+    REDIS_CHAT_CHANNEL_PREFIX: str = "chat"
+
+    # RabbitMQ (kept for reference, no longer used)
     RABBITMQ_URL: str = "amqp://guest:guest@localhost:5672/"
     RABBITMQ_EXCHANGE: str = "savey"
     RABBITMQ_QUEUE: str = "llm_messages"
