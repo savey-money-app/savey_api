@@ -17,4 +17,5 @@ dependencies = [
     "aio-pika>=9.0.0",
     "redis>=5.0.0",
     "psycopg2-binary>=2.9.9",
+    "python-multipart>=0.0.22",
 ]
