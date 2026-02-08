@@ -1,5 +1,7 @@
 """Transaction management routes"""
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from uuid import UUID
@@ -17,7 +19,8 @@ from services.transaction_service import (
     update_transaction,
     delete_transaction
 )
-from services.category_service import get_category_by_id
+from services.category_service import get_category_by_id, get_category_by_title, create_category
+from schemas.category import CategoryCreate
 from routes.v1.auth import get_user_internal_or_jwt
 
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
@@ -108,6 +111,74 @@ def update_existing_transaction(
         )
 
     return transaction
+
+
+class BulkTransactionItem(BaseModel):
+    amount: float
+    category: str
+    description: Optional[str] = None
+    transaction_type: Optional[str] = None
+    date: Optional[str] = None
+
+
+class BulkTransactionCreate(BaseModel):
+    transactions: List[BulkTransactionItem]
+    statement_date: Optional[str] = None
+
+
+class BulkTransactionResponse(BaseModel):
+    created_count: int
+    statement_id: Optional[str] = None
+
+
+def _resolve_or_create_category(db: Session, category_name: str) -> UUID:
+    """Look up category by name, creating it if it doesn't exist."""
+    cat = get_category_by_title(db, category_name)
+    if not cat:
+        cat = create_category(db, CategoryCreate(title=category_name))
+    return cat.id
+
+
+@router.post("/bulk", response_model=BulkTransactionResponse, status_code=status.HTTP_201_CREATED)
+def create_bulk_transactions(
+    payload: BulkTransactionCreate,
+    current_user_id: str = Depends(get_user_internal_or_jwt),
+    db: Session = Depends(get_db),
+):
+    """Create multiple transactions from a bank statement (bulk import)."""
+    import uuid as _uuid
+    statement_id = str(_uuid.uuid4())
+    created = 0
+
+    for item in payload.transactions:
+        category_id = _resolve_or_create_category(db, item.category)
+
+        # Determine transaction_type from sign if not provided
+        if item.transaction_type:
+            tx_type = item.transaction_type
+        else:
+            tx_type = "income" if item.amount >= 0 else "expense"
+
+        # Parse date
+        if item.date:
+            try:
+                tx_date = datetime.fromisoformat(item.date).date()
+            except ValueError:
+                tx_date = datetime.utcnow().date()
+        else:
+            tx_date = datetime.utcnow().date()
+
+        tx_data = TransactionCreate(
+            amount=abs(item.amount),
+            category_id=category_id,
+            description=item.description,
+            transaction_type=tx_type,
+            date=tx_date,
+        )
+        create_transaction(db, current_user_id, tx_data)
+        created += 1
+
+    return BulkTransactionResponse(created_count=created, statement_id=statement_id)
 
 
 @router.delete("/{transaction_id}", status_code=status.HTTP_204_NO_CONTENT)
