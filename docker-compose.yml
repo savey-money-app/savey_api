@@ -10,6 +10,8 @@ services:
       - "8000:8000"
     volumes:
       - .:/app
+    networks:
+      - dokploy-network
     deploy:
       resources:
         limits:
