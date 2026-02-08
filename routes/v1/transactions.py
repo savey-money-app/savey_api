@@ -18,7 +18,7 @@ from services.transaction_service import (
     delete_transaction
 )
 from services.category_service import get_category_by_id
-from routes.v1.auth import get_current_user
+from routes.v1.auth import get_user_internal_or_jwt
 
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
 
@@ -26,7 +26,7 @@ router = APIRouter(prefix="/transactions", tags=["Transactions"])
 @router.post("", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)
 def create_new_transaction(
     transaction_data: TransactionCreate,
-    current_user_id: str = Depends(get_current_user),
+    current_user_id: str = Depends(get_user_internal_or_jwt),
     db: Session = Depends(get_db)
 ):
     """Create a new transaction"""
@@ -50,7 +50,7 @@ def list_transactions(
     category_id: Optional[UUID] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
-    current_user_id: str = Depends(get_current_user),
+    current_user_id: str = Depends(get_user_internal_or_jwt),
     db: Session = Depends(get_db)
 ):
     """Get all transactions for the current user with optional filters"""
@@ -69,7 +69,7 @@ def list_transactions(
 @router.get("/{transaction_id}", response_model=TransactionResponse)
 def get_transaction(
     transaction_id: str,
-    current_user_id: str = Depends(get_current_user),
+    current_user_id: str = Depends(get_user_internal_or_jwt),
     db: Session = Depends(get_db)
 ):
     """Get a specific transaction by ID"""
@@ -87,7 +87,7 @@ def get_transaction(
 def update_existing_transaction(
     transaction_id: str,
     transaction_data: TransactionUpdate,
-    current_user_id: str = Depends(get_current_user),
+    current_user_id: str = Depends(get_user_internal_or_jwt),
     db: Session = Depends(get_db)
 ):
     """Update a transaction"""
@@ -113,7 +113,7 @@ def update_existing_transaction(
 @router.delete("/{transaction_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_existing_transaction(
     transaction_id: str,
-    current_user_id: str = Depends(get_current_user),
+    current_user_id: str = Depends(get_user_internal_or_jwt),
     db: Session = Depends(get_db)
 ):
     """Delete a transaction"""

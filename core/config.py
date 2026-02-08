@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     RABBITMQ_QUEUE: str = "llm_messages"
     RABBITMQ_ROUTING_KEY: str = "llm.message"
 
+    # Internal service auth (used by savey_llm to call API without user JWT)
+    INTERNAL_API_TOKEN: str = "change-me-internal-secret"
+
     # API Settings
     API_V1_PREFIX: str = "/api/v1"
     PROJECT_NAME: str = "Savey API"

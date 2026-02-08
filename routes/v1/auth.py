@@ -1,7 +1,9 @@
 """Authentication routes for login, register, and user profile"""
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
+from typing import Optional
+from core.config import settings
 from core.database import get_db
 from schemas.auth import RegisterRequest, LoginRequest, TokenResponse
 from schemas.user import UserResponse
@@ -83,6 +85,60 @@ def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found"
+        )
+
+    return user_id
+
+
+security_optional = HTTPBearer(auto_error=False)
+
+
+def get_user_internal_or_jwt(
+    x_internal_token: Optional[str] = Header(None),
+    x_user_id: Optional[str] = Header(None),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_optional),
+    db: Session = Depends(get_db),
+) -> str:
+    """
+    Auth dependency that accepts either:
+    - Internal service token (X-Internal-Token + X-User-ID headers), or
+    - Regular JWT Bearer token
+    """
+    # Internal service path
+    if x_internal_token and x_internal_token == settings.INTERNAL_API_TOKEN:
+        if not x_user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="X-User-ID header required with internal token",
+            )
+        return x_user_id
+
+    # JWT path
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+        )
+
+    payload = decode_access_token(credentials.credentials)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+        )
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+        )
+
+    user = get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
         )
 
     return user_id

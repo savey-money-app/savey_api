@@ -12,7 +12,7 @@ from services.category_service import (
     update_category,
     delete_category
 )
-from routes.v1.auth import get_current_user
+from routes.v1.auth import get_user_internal_or_jwt
 
 router = APIRouter(prefix="/categories", tags=["Categories"])
 
@@ -38,7 +38,7 @@ def get_category(category_id: str, db: Session = Depends(get_db)):
 @router.post("", response_model=CategoryResponse, status_code=status.HTTP_201_CREATED)
 def create_new_category(
     category_data: CategoryCreate,
-    current_user_id: str = Depends(get_current_user),
+    current_user_id: str = Depends(get_user_internal_or_jwt),
     db: Session = Depends(get_db)
 ):
     """Create a new category (requires authentication)"""
@@ -57,7 +57,7 @@ def create_new_category(
 def update_existing_category(
     category_id: str,
     category_data: CategoryUpdate,
-    current_user_id: str = Depends(get_current_user),
+    current_user_id: str = Depends(get_user_internal_or_jwt),
     db: Session = Depends(get_db)
 ):
     """Update a category (requires authentication)"""
@@ -81,7 +81,7 @@ def update_existing_category(
 @router.delete("/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_existing_category(
     category_id: str,
-    current_user_id: str = Depends(get_current_user),
+    current_user_id: str = Depends(get_user_internal_or_jwt),
     db: Session = Depends(get_db)
 ):
     """Delete a category (requires authentication, will fail if transactions use it)"""
