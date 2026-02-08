@@ -1,9 +1,4 @@
 version: '3.8'
-
-networks:
-  shared:
-    driver: bridge
-
 services:
   savey_api:
     platform: linux/amd64
@@ -15,8 +10,6 @@ services:
       - "8000:8000"
     volumes:
       - .:/app
-    networks:
-      - shared
     deploy:
       resources:
         limits:
