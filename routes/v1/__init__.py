@@ -1,6 +1,6 @@
 """API v1 routes"""
 from fastapi import APIRouter
-from routes.v1 import auth, users, transactions, messages, llm, categories, chat
+from routes.v1 import auth, users, transactions, messages, llm, categories, chat, files
 
 # Create v1 router
 v1_router = APIRouter(prefix="/v1")
@@ -13,3 +13,4 @@ v1_router.include_router(categories.router)
 v1_router.include_router(messages.router)
 v1_router.include_router(llm.router)
 v1_router.include_router(chat.router)
+v1_router.include_router(files.router)

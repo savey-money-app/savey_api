@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     # Internal service auth (used by savey_llm to call API without user JWT)
     INTERNAL_API_TOKEN: str = "change-me-internal-secret"
 
+    # File uploads
+    UPLOADS_DIR: str = "/app/uploads"
+
     # API Settings
     API_V1_PREFIX: str = "/api/v1"
     PROJECT_NAME: str = "Savey API"
