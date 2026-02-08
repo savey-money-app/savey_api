@@ -51,10 +51,6 @@ services:
       - "8000:8000"
     volumes:
       - .:/app
-    environment:
-      DATABASE_URL: postgresql://neondb_owner:npg_zOQAHDxvM5h7@ep-green-pine-a2y91p4h-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require
-      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
-      REDIS_URL: redis://redis:6379
     networks:
       - shared
     depends_on:
@@ -67,53 +63,6 @@ services:
         limits:
           memory: 4g
 
-  savey_llm:
-    platform: linux/amd64
-    build: ../savey_llm
-    container_name: savey_llm_worker
-    restart: always
-    volumes:
-      - ../savey_llm:/app
-    environment:
-      # Redis
-      REDIS_URL: redis://redis:6379
-      REDIS_CHANNEL_INPUT: llm:messages:input
-      REDIS_CHANNEL_OUTPUT: llm:messages:output
-      REDIS_HITL_PREFIX: hitl:flow:
-      # Google Gemini
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
-      GEMINI_MODEL_MAIN: gemini-2.0-flash-exp
-      GEMINI_MODEL_VISION: gemini-2.0-flash-exp
-      GEMINI_TEMPERATURE: 0.7
-      # LLM Settings
-      MAX_TOKENS: 2000
-      MAX_TOKENS_VISION: 4000
-      ENABLE_FUNCTION_CALLING: "true"
-      # API Client
-      SAVEY_API_URL: http://savey_api:8000
-      API_TIMEOUT: 30
-      # HITL
-      HITL_FLOW_TTL: 3600
-      HITL_MAX_ITERATIONS: 5
-      # OCR
-      OCR_MAX_FILE_SIZE: 10485760
-      # Agents
-      DEFAULT_AGENT: main
-      ENABLE_MULTI_AGENT: "true"
-      # Service
-      LOG_LEVEL: INFO
-    networks:
-      - shared
-    depends_on:
-      redis:
-        condition: service_healthy
-      savey_api:
-        condition: service_started
-    deploy:
-      resources:
-        limits:
-          memory: 2g
 
 volumes:
   redis_data:
-  rabbitmq_data:
