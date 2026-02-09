@@ -11,19 +11,26 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 from core.config import settings
+from core.database import get_db
 from core.redis import get_redis
 from routes.v1.auth import get_current_user
+from services.user_service import get_user_by_id
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
 RESPONSE_TIMEOUT = 60  # seconds to wait for LLM response
 
 
+class UserMetadata(BaseModel):
+    user_fullname: Optional[str] = None
+    user_currency: str
+
+
 class ChatRequest(BaseModel):
     message: str
-    context: dict | None = None
     hitl_flow_id: str | None = None
     hitl_action: str | None = None
     file_ids: Optional[List[str]] = None
@@ -66,7 +73,7 @@ def _resolve_attachments(file_ids: Optional[List[str]]) -> List[dict]:
     return attachments
 
 
-def _build_job(user_id: str, request: ChatRequest) -> tuple[str, dict]:
+def _build_job(user_id: str, request: ChatRequest, user_metadata: UserMetadata) -> tuple[str, dict]:
     """Build the Redis job payload, return (message_id, job_dict)."""
     message_id = str(uuid.uuid4())
     job = {
@@ -74,7 +81,7 @@ def _build_job(user_id: str, request: ChatRequest) -> tuple[str, dict]:
         "message_id": message_id,
         "content": request.message,
         "timestamp": datetime.utcnow().isoformat(),
-        "context": request.context,
+        "user_metadata": user_metadata.model_dump(),
         "hitl_flow_id": request.hitl_flow_id,
         "hitl_action": request.hitl_action,
         "attachments": _resolve_attachments(request.file_ids),
@@ -86,13 +93,16 @@ def _build_job(user_id: str, request: ChatRequest) -> tuple[str, dict]:
 async def chat_stream(
     request: ChatRequest,
     current_user_id: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """
     Send a message to the LLM worker and stream the response back as SSE.
 
     Each SSE frame carries a JSON payload. A final `data: [DONE]` frame closes the stream.
     """
-    message_id, job = _build_job(current_user_id, request)
+    user = get_user_by_id(db, current_user_id)
+    user_metadata = UserMetadata(user_fullname=user.full_name, user_currency=user.currency)
+    message_id, job = _build_job(current_user_id, request, user_metadata)
     redis = await get_redis()
     await redis.lpush(settings.REDIS_CHAT_QUEUE, json.dumps(job))
 
@@ -133,13 +143,16 @@ async def chat_stream(
 async def chat_message(
     request: ChatRequest,
     current_user_id: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """
     Send a message to the LLM worker and wait for the full response.
 
     Blocks until the worker publishes the response (or timeout).
     """
-    message_id, job = _build_job(current_user_id, request)
+    user = get_user_by_id(db, current_user_id)
+    user_metadata = UserMetadata(user_fullname=user.full_name, user_currency=user.currency)
+    message_id, job = _build_job(current_user_id, request, user_metadata)
     redis = await get_redis()
 
     channel = f"{settings.REDIS_CHAT_CHANNEL_PREFIX}:{message_id}"
