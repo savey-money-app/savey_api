@@ -2,7 +2,7 @@ from sqlalchemy.engine import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import Session
-from sqlalchemy import event
+from sqlalchemy import event, text
 from .config import settings
 
 
@@ -19,14 +19,6 @@ engine = create_engine(
     echo=False,                # Set to True for SQL debugging
 )
 
-# Set search_path to 'savey' schema for all connections
-@event.listens_for(engine, "connect")
-def set_search_path(dbapi_connection, connection_record):
-    """Set search_path to 'savey' schema on every new connection"""
-    cursor = dbapi_connection.cursor()
-    cursor.execute("SET search_path TO savey")
-    cursor.close()
-
 # Create a global session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -35,8 +27,14 @@ def get_db():
     """Get a database session. Use in FastAPI dependencies."""
     db = SessionLocal()
     try:
+        # Set search_path inside the transaction so PgBouncer (Neon pooler)
+        # keeps the same backend connection for this entire unit of work.
+        db.execute(text("SET search_path TO savey"))
         yield db
-    finally:
         db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
         db.close()
 
