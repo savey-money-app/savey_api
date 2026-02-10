@@ -31,8 +31,6 @@ class UserMetadata(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str
-    hitl_flow_id: str | None = None
-    hitl_action: str | None = None
     file_ids: Optional[List[str]] = None
 
 
@@ -82,8 +80,6 @@ def _build_job(user_id: str, request: ChatRequest, user_metadata: UserMetadata) 
         "content": request.message,
         "timestamp": datetime.utcnow().isoformat(),
         "user_metadata": user_metadata.model_dump(),
-        "hitl_flow_id": request.hitl_flow_id,
-        "hitl_action": request.hitl_action,
         "attachments": _resolve_attachments(request.file_ids),
     }
     return message_id, job
