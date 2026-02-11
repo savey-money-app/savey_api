@@ -35,7 +35,10 @@ def update_category(db: Session, category_id: str, category_data: CategoryUpdate
     if not category:
         return None
 
-    category.title = category_data.title
+    update_data = category_data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(category, field, value)
+
     db.commit()
     db.refresh(category)
     return category
