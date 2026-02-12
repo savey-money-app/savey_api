@@ -205,15 +205,17 @@ async def message_send(
 
     # Persist both messages (skip if LLM returned empty content)
     llm_content = payload.get("content", "") if isinstance(payload, dict) else str(payload)
+    created_at = datetime.utcnow()
     if llm_content:
-        create_message(db, MessageCreate(content=request.message, is_user=True, had_attachment=had_attachment, user_id=current_user_id, created_at=datetime.utcnow()))
-        create_message(db, MessageCreate(content=llm_content, is_user=False, had_attachment=False, user_id=current_user_id, created_at=datetime.utcnow()))
+        create_message(db, MessageCreate(content=request.message, is_user=True, had_attachment=had_attachment, user_id=current_user_id, created_at=created_at))
+        create_message(db, MessageCreate(content=llm_content, is_user=False, had_attachment=False, user_id=current_user_id, created_at=created_at))
 
     return MessageResponse(
         id=message_id,
         user_id=current_user_id,
         is_user=False,
         had_attachment=False,
+        created_at=created_at,
         **payload,
     )
 
