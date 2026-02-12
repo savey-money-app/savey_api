@@ -1,39 +1,26 @@
-"""Message service for message CRUD and RabbitMQ publishing"""
+"""Message service for message CRUD operations"""
 from sqlalchemy.orm import Session
 from models.message import Message
-from schemas.message import MessageCreate, MessagePublish
-from services.rabbitmq_service import rabbitmq_service
 from typing import List, Optional
 
 
-def create_message(db: Session, user_id: str, message_data: MessageCreate) -> Message:
+def create_message(
+    db: Session,
+    user_id: str,
+    content: str,
+    is_user: bool,
+    had_attachment: bool = False,
+) -> Message:
     """Create a new message"""
     message = Message(
         user_id=user_id,
-        content=message_data.content,
-        is_user=message_data.is_user
+        content=content,
+        is_user=is_user,
+        had_attachment=had_attachment,
     )
     db.add(message)
     db.commit()
     db.refresh(message)
-    return message
-
-
-async def create_and_publish_message(db: Session, user_id: str, message_data: MessageCreate) -> Message:
-    """Create a message and publish it to RabbitMQ"""
-    # Create the message in DB
-    message = create_message(db, user_id, message_data)
-
-    # Publish to RabbitMQ if it's a user message
-    if message.is_user:
-        publish_data = MessagePublish(
-            user_id=str(message.user_id),
-            message_id=str(message.id),
-            content=message.content,
-            timestamp=message.created_at
-        )
-        await rabbitmq_service.publish_message(publish_data.model_dump(mode='json'))
-
     return message
 
 

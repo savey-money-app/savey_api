@@ -16,6 +16,7 @@ class Message(Base):
 
     content = Column(Text, nullable=False)
     is_user = Column(Boolean, nullable=False, default=True)  # True if user sent, False if AI sent
+    had_attachment = Column(Boolean, nullable=False, default=False)
 
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 

@@ -1,14 +1,7 @@
-"""Message schemas for requests and responses"""
+"""Message schemas for responses"""
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
-from typing import Optional
 from uuid import UUID
-
-
-class MessageCreate(BaseModel):
-    """Schema for creating a new message"""
-    content: str
-    is_user: bool = True
 
 
 class MessageResponse(BaseModel):
@@ -17,14 +10,7 @@ class MessageResponse(BaseModel):
     user_id: UUID
     content: str
     is_user: bool
+    had_attachment: bool
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
-
-
-class MessagePublish(BaseModel):
-    """Schema for publishing message to RabbitMQ"""
-    user_id: str
-    message_id: str
-    content: str
-    timestamp: datetime
