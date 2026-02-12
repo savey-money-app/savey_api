@@ -145,8 +145,8 @@ async def message_stream(
             # Persist both messages after stream completes
             llm_content = "".join(accumulated_content)
             if llm_content:
-                create_message(db, MessageCreate(content=request.message, is_user=True, had_attachment=had_attachment, user_id=current_user_id))
-                create_message(db, MessageCreate(content=llm_content, is_user=False, had_attachment=False, user_id=current_user_id))
+                create_message(db, MessageCreate(content=request.message, is_user=True, had_attachment=had_attachment, user_id=current_user_id, created_at=datetime.utcnow()))
+                create_message(db, MessageCreate(content=llm_content, is_user=False, had_attachment=False, user_id=current_user_id, created_at=datetime.utcnow()))
 
     return StreamingResponse(
         event_stream(),
@@ -206,8 +206,8 @@ async def message_send(
     # Persist both messages (skip if LLM returned empty content)
     llm_content = payload.get("content", "") if isinstance(payload, dict) else str(payload)
     if llm_content:
-        create_message(db, MessageCreate(content=request.message, is_user=True, had_attachment=had_attachment, user_id=current_user_id))
-        create_message(db, MessageCreate(content=llm_content, is_user=False, had_attachment=False, user_id=current_user_id))
+        create_message(db, MessageCreate(content=request.message, is_user=True, had_attachment=had_attachment, user_id=current_user_id, created_at=datetime.utcnow()))
+        create_message(db, MessageCreate(content=llm_content, is_user=False, had_attachment=False, user_id=current_user_id, created_at=datetime.utcnow()))
 
     return MessageResponse(
         id=message_id,
