@@ -164,7 +164,7 @@ async def message_send(
     request: ChatRequest,
     current_user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
-)->:
+)->MessageResponse:
     """
     Send a message to the LLM worker and wait for the full response.
 
