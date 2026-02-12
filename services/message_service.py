@@ -2,21 +2,19 @@
 from sqlalchemy.orm import Session
 from models.message import Message
 from typing import List, Optional
+from schemas.message import MessageCreate
 
 
 def create_message(
     db: Session,
-    user_id: str,
-    content: str,
-    is_user: bool,
-    had_attachment: bool = False,
+    message_data: MessageCreate
 ) -> Message:
     """Create a new message"""
     message = Message(
-        user_id=user_id,
-        content=content,
-        is_user=is_user,
-        had_attachment=had_attachment,
+        user_id=message_data.user_id,
+        content=message_data.content,
+        is_user=message_data.is_user,
+        had_attachment=message_data.had_attachment,
     )
     db.add(message)
     db.commit()

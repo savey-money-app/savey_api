@@ -17,7 +17,7 @@ from core.config import settings
 from core.database import get_db
 from core.redis import get_redis
 from routes.v1.auth import get_current_user
-from schemas.message import MessageResponse
+from schemas.message import MessageResponse, MessageCreate
 from services.message_service import create_message, get_user_messages
 from services.user_service import get_user_by_id
 
@@ -145,8 +145,8 @@ async def message_stream(
             # Persist both messages after stream completes
             llm_content = "".join(accumulated_content)
             if llm_content:
-                create_message(db, current_user_id, content=request.message, is_user=True, had_attachment=had_attachment)
-                create_message(db, current_user_id, content=llm_content, is_user=False, had_attachment=False)
+                create_message(db, MessageCreate(content=request.message, is_user=True, had_attachment=had_attachment, user_id=current_user_id))
+                create_message(db, MessageCreate(content=llm_content, is_user=False, had_attachment=False, user_id=current_user_id))
 
     return StreamingResponse(
         event_stream(),
@@ -164,7 +164,7 @@ async def message_send(
     request: ChatRequest,
     current_user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
-):
+)->:
     """
     Send a message to the LLM worker and wait for the full response.
 
@@ -203,12 +203,19 @@ async def message_send(
     if payload is None:
         raise HTTPException(status_code=504, detail="LLM response timeout")
 
-    # Persist both messages
+    # Persist both messages (skip if LLM returned empty content)
     llm_content = payload.get("content", "") if isinstance(payload, dict) else str(payload)
-    create_message(db, current_user_id, content=request.message, is_user=True, had_attachment=had_attachment)
-    create_message(db, current_user_id, content=llm_content, is_user=False, had_attachment=False)
+    if llm_content:
+        create_message(db, MessageCreate(content=request.message, is_user=True, had_attachment=had_attachment, user_id=current_user_id))
+        create_message(db, MessageCreate(content=llm_content, is_user=False, had_attachment=False, user_id=current_user_id))
 
-    return {"message_id": message_id, **payload}
+    return MessageResponse(
+        id=message_id,
+        user_id=current_user_id,
+        is_user=False,
+        had_attachment=False,
+        **payload,
+    )
 
 
 @router.get("", response_model=List[MessageResponse])
