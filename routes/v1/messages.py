@@ -23,7 +23,7 @@ from services.user_service import get_user_by_id
 
 router = APIRouter(prefix="/messages", tags=["Messages"])
 
-RESPONSE_TIMEOUT = 60  # seconds to wait for LLM response
+RESPONSE_TIMEOUT = 300  # seconds — hard limit for the full stream (tool calls + generation)
 
 
 # ── Schemas ──────────────────────────────────────────────────────────
@@ -110,14 +110,14 @@ async def message_stream(
     had_attachment = bool(request.file_ids)
     message_id, job = _build_job(current_user_id, request, user_metadata)
     redis = await get_redis()
-    await redis.lpush(settings.REDIS_CHAT_QUEUE, json.dumps(job))
-
     channel = f"{settings.REDIS_CHAT_CHANNEL_PREFIX}:{message_id}"
 
     async def event_stream():
         accumulated_content = []
         pubsub = redis.pubsub()
         await pubsub.subscribe(channel)
+        # Push AFTER subscribing to avoid missing tokens published before we listen
+        await redis.lpush(settings.REDIS_CHAT_QUEUE, json.dumps(job))
         try:
             deadline = datetime.utcnow().timestamp() + RESPONSE_TIMEOUT
             async for raw in pubsub.listen():
