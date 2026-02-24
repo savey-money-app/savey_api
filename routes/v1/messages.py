@@ -14,8 +14,9 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from core.config import settings
-from core.database import get_db
+from core.database import get_db, SessionLocal
 from core.redis import get_redis
+from sqlalchemy import text
 from routes.v1.auth import get_current_user
 from schemas.message import MessageResponse, MessageCreate
 from services.message_service import create_message, get_user_messages
@@ -142,11 +143,25 @@ async def message_stream(
             await pubsub.unsubscribe(channel)
             await pubsub.aclose()
 
-            # Persist both messages after stream completes
+            # Persist both messages after stream completes.
+            # NOTE: the injected `db` session is already closed by the time this
+            # finally block runs (FastAPI closes Depends sessions when the endpoint
+            # function returns, not when the StreamingResponse body is consumed).
+            # Open a fresh session here to guarantee the write succeeds.
             llm_content = "".join(accumulated_content)
             if llm_content:
-                create_message(db, MessageCreate(content=request.message, is_user=True, had_attachment=had_attachment, user_id=current_user_id, created_at=datetime.utcnow()))
-                create_message(db, MessageCreate(content=llm_content, is_user=False, had_attachment=False, user_id=current_user_id, created_at=datetime.utcnow()))
+                db_save = SessionLocal()
+                try:
+                    db_save.execute(text("SET search_path TO savey"))
+                    created_at = datetime.utcnow()
+                    create_message(db_save, MessageCreate(content=request.message, is_user=True, had_attachment=had_attachment, user_id=current_user_id, created_at=created_at))
+                    create_message(db_save, MessageCreate(content=llm_content, is_user=False, had_attachment=False, user_id=current_user_id, created_at=created_at))
+                    db_save.commit()
+                except Exception as exc:
+                    db_save.rollback()
+                    import logging; logging.getLogger(__name__).error("Failed to persist stream messages: %s", exc)
+                finally:
+                    db_save.close()
 
     return StreamingResponse(
         event_stream(),
