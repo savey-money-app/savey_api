@@ -2,11 +2,14 @@
 import asyncio
 import base64
 import json
+import logging
 import mimetypes
 import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
@@ -126,6 +129,26 @@ async def message_stream(
                     continue
                 data = raw["data"]
                 if data == "[DONE]":
+                    # Persist messages here — inside the try block, before yielding
+                    # [DONE]. Doing this in finally is unreliable because Starlette
+                    # does not call aclose() on async generators, so the finally
+                    # block only runs on GC (unpredictable / too late).
+                    llm_content = "".join(
+                        c for c in accumulated_content if isinstance(c, str)
+                    )
+                    if llm_content:
+                        db_save = SessionLocal()
+                        try:
+                            db_save.execute(text("SET search_path TO savey"))
+                            created_at = datetime.utcnow()
+                            create_message(db_save, MessageCreate(content=request.message, is_user=True, had_attachment=had_attachment, user_id=current_user_id, created_at=created_at))
+                            create_message(db_save, MessageCreate(content=llm_content, is_user=False, had_attachment=False, user_id=current_user_id, created_at=created_at))
+                            db_save.commit()
+                        except Exception as exc:
+                            db_save.rollback()
+                            logger.error("Failed to persist stream messages: %s", exc)
+                        finally:
+                            db_save.close()
                     yield "data: [DONE]\n\n"
                     break
                 # Accumulate LLM response chunks
@@ -140,28 +163,9 @@ async def message_stream(
                     yield "data: [ERROR] timeout\n\n"
                     break
         finally:
+            # Only async cleanup here — this is the only thing that needs finally
             await pubsub.unsubscribe(channel)
             await pubsub.aclose()
-
-            # Persist both messages after stream completes.
-            # NOTE: the injected `db` session is already closed by the time this
-            # finally block runs (FastAPI closes Depends sessions when the endpoint
-            # function returns, not when the StreamingResponse body is consumed).
-            # Open a fresh session here to guarantee the write succeeds.
-            llm_content = "".join(accumulated_content)
-            if llm_content:
-                db_save = SessionLocal()
-                try:
-                    db_save.execute(text("SET search_path TO savey"))
-                    created_at = datetime.utcnow()
-                    create_message(db_save, MessageCreate(content=request.message, is_user=True, had_attachment=had_attachment, user_id=current_user_id, created_at=created_at))
-                    create_message(db_save, MessageCreate(content=llm_content, is_user=False, had_attachment=False, user_id=current_user_id, created_at=created_at))
-                    db_save.commit()
-                except Exception as exc:
-                    db_save.rollback()
-                    import logging; logging.getLogger(__name__).error("Failed to persist stream messages: %s", exc)
-                finally:
-                    db_save.close()
 
     return StreamingResponse(
         event_stream(),
