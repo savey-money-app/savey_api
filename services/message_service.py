@@ -28,10 +28,23 @@ def get_user_messages(
     skip: int = 0,
     limit: int = 50
 ) -> List[Message]:
-    """Get all messages for a user (chat history)"""
-    return db.query(Message).filter(
-        Message.user_id == user_id
-    ).order_by(Message.created_at.asc()).offset(skip).limit(limit).all()
+    """
+    Return the most recent `limit` messages for a user, oldest-first.
+
+    Query newest-first (DESC) so that `skip` always means "skip the N
+    most recent messages" — ideal for chat load-more pagination.
+    The slice is then reversed before returning so the client receives
+    messages in ascending (oldest→newest) order, ready to display.
+    """
+    rows = (
+        db.query(Message)
+        .filter(Message.user_id == user_id)
+        .order_by(Message.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    return list(reversed(rows))
 
 
 def get_message_by_id(db: Session, message_id: str, user_id: str) -> Optional[Message]:
