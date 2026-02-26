@@ -85,7 +85,12 @@ def delete_transaction(db: Session, transaction_id: str, user_id: str) -> bool:
     return True
 
 
-def calculate_user_balance(db: Session, user_id: str) -> UserBalance:
+def calculate_user_balance(
+    db: Session,
+    user_id: str,
+    monthly_limit: Optional[int] = None,
+    daily_limit: Optional[int] = None,
+) -> UserBalance:
     """Compute the user's current balance, monthly spending and daily spending."""
     today = date.today()
     first_of_month = today.replace(day=1)
@@ -118,5 +123,7 @@ def calculate_user_balance(db: Session, user_id: str) -> UserBalance:
     return UserBalance(
         balance=float(income_total) - float(expense_total),
         monthly_spending=float(monthly_spending),
+        monthly_limit=float(monthly_limit or 0),
         daily_spending=float(daily_spending),
+        daily_limit=float(daily_limit or 0),
     )

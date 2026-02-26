@@ -6,8 +6,9 @@ from typing import Optional
 from core.config import settings
 from core.database import get_db
 from schemas.auth import RegisterRequest, LoginRequest, TokenResponse
-from schemas.user import UserResponse
+from schemas.user import UserResponse, UserWithBalance
 from services.user_service import create_user, get_user_by_email, get_user_by_id
+from services.transaction_service import calculate_user_balance
 from services.auth_service import verify_password, create_access_token, decode_access_token
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -144,12 +145,12 @@ def get_user_internal_or_jwt(
     return user_id
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get("/me", response_model=UserWithBalance)
 def get_current_user_profile(
     current_user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get current user profile"""
+    """Get current user profile with live balance"""
     user = get_user_by_id(db, current_user_id)
     if not user:
         raise HTTPException(
@@ -157,4 +158,9 @@ def get_current_user_profile(
             detail="User not found"
         )
 
-    return user
+    balance = calculate_user_balance(
+        db, current_user_id,
+        monthly_limit=user.monthly_limit,
+        daily_limit=user.daily_limit,
+    )
+    return UserWithBalance(user=UserResponse.model_validate(user), balance=balance)

@@ -39,6 +39,8 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     full_name: Optional[str] = None
     currency: Optional[str] = None
+    monthly_limit: Optional[int] = None
+    daily_limit: Optional[int] = None
 
     @field_validator("currency")
     @classmethod
@@ -54,10 +56,13 @@ class UserResponse(BaseModel):
     email: str
     full_name: Optional[str] = None
     currency: str
+    monthly_limit: Optional[int] = None
+    daily_limit: Optional[int] = None
     created_at: datetime
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
 
 class UserBalance(BaseModel):
     """Schema for user balance"""
@@ -66,3 +71,9 @@ class UserBalance(BaseModel):
     monthly_limit: float = 0.0
     daily_spending: float
     daily_limit: float = 0.0
+
+
+class UserWithBalance(BaseModel):
+    """User profile combined with live balance"""
+    user: UserResponse
+    balance: UserBalance
