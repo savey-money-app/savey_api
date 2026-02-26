@@ -3,6 +3,7 @@ from pydantic import BaseModel, EmailStr, ConfigDict, field_validator
 from datetime import datetime
 from typing import Optional
 from uuid import UUID
+from schemas.transaction import UserBalance
 
 # ISO 4217 currency codes (common currencies)
 VALID_CURRENCIES = {
@@ -62,15 +63,6 @@ class UserResponse(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
-
-
-class UserBalance(BaseModel):
-    """Schema for user balance"""
-    balance: float
-    monthly_spending: float
-    monthly_limit: float = 0.0
-    daily_spending: float
-    daily_limit: float = 0.0
 
 
 class UserWithBalance(BaseModel):
