@@ -116,8 +116,17 @@ async def message_stream(
     redis = await get_redis()
     channel = f"{settings.REDIS_CHAT_CHANNEL_PREFIX}:{message_id}"
 
+    # Save user message immediately — guaranteed regardless of client disconnect
+    created_at = datetime.utcnow()
+    create_message(db, MessageCreate(
+        content=request.message, is_user=True,
+        had_attachment=had_attachment,
+        user_id=current_user_id, created_at=created_at,
+    ))
+
     async def event_stream():
         accumulated_content = []
+        done = False
         pubsub = redis.pubsub()
         await pubsub.subscribe(channel)
         # Push AFTER subscribing to avoid missing tokens published before we listen
@@ -129,10 +138,6 @@ async def message_stream(
                     continue
                 data = raw["data"]
                 if data == "[DONE]":
-                    # Persist messages here — inside the try block, before yielding
-                    # [DONE]. Doing this in finally is unreliable because Starlette
-                    # does not call aclose() on async generators, so the finally
-                    # block only runs on GC (unpredictable / too late).
                     llm_content = "".join(
                         c for c in accumulated_content if isinstance(c, str)
                     )
@@ -140,15 +145,14 @@ async def message_stream(
                         db_save = SessionLocal()
                         try:
                             db_save.execute(text("SET search_path TO savey"))
-                            created_at = datetime.utcnow()
-                            create_message(db_save, MessageCreate(content=request.message, is_user=True, had_attachment=had_attachment, user_id=current_user_id, created_at=created_at))
                             create_message(db_save, MessageCreate(content=llm_content, is_user=False, had_attachment=False, user_id=current_user_id, created_at=created_at))
                             db_save.commit()
                         except Exception as exc:
                             db_save.rollback()
-                            logger.error("Failed to persist stream messages: %s", exc)
+                            logger.error("Failed to persist AI message: %s", exc)
                         finally:
                             db_save.close()
+                    done = True
                     yield "data: [DONE]\n\n"
                     break
                 # Accumulate LLM response chunks
@@ -163,9 +167,26 @@ async def message_stream(
                     yield "data: [ERROR] timeout\n\n"
                     break
         finally:
-            # Only async cleanup here — this is the only thing that needs finally
             await pubsub.unsubscribe(channel)
             await pubsub.aclose()
+            # Best-effort: save partial AI response if client disconnected before [DONE]
+            if not done:
+                llm_content = "".join(c for c in accumulated_content if isinstance(c, str))
+                if llm_content:
+                    db_save = SessionLocal()
+                    try:
+                        db_save.execute(text("SET search_path TO savey"))
+                        create_message(db_save, MessageCreate(
+                            content=llm_content, is_user=False,
+                            had_attachment=False, user_id=current_user_id,
+                            created_at=created_at,
+                        ))
+                        db_save.commit()
+                    except Exception as exc:
+                        db_save.rollback()
+                        logger.error("Failed to persist partial AI message: %s", exc)
+                    finally:
+                        db_save.close()
 
     return StreamingResponse(
         event_stream(),

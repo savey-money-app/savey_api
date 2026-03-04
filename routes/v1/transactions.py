@@ -24,6 +24,7 @@ from services.transaction_service import (
     calculate_user_balance,
 )
 from services.category_service import get_category_by_id, get_category_by_title, create_category
+from services.user_service import get_user_by_id
 from schemas.category import CategoryCreate
 from routes.v1.auth import get_user_internal_or_jwt
 
@@ -46,7 +47,12 @@ def create_new_transaction(
         )
 
     transaction = create_transaction(db, current_user_id, transaction_data)
-    balance = calculate_user_balance(db, current_user_id)
+    _user = get_user_by_id(db, current_user_id)
+    balance = calculate_user_balance(
+        db, current_user_id,
+        monthly_limit=_user.monthly_limit if _user else None,
+        daily_limit=_user.daily_limit if _user else None,
+    )
     return TransactionWithBalance(transaction=transaction, balance=balance)
 
 
@@ -183,7 +189,12 @@ def create_bulk_transactions(
         create_transaction(db, current_user_id, tx_data)
         created += 1
 
-    balance = calculate_user_balance(db, current_user_id)
+    _user = get_user_by_id(db, current_user_id)
+    balance = calculate_user_balance(
+        db, current_user_id,
+        monthly_limit=_user.monthly_limit if _user else None,
+        daily_limit=_user.daily_limit if _user else None,
+    )
     return BulkTransactionWithBalance(created_count=created, statement_id=statement_id, balance=balance)
 
 
@@ -201,5 +212,10 @@ def delete_existing_transaction(
             detail="Transaction not found"
         )
 
-    balance = calculate_user_balance(db, current_user_id)
+    _user = get_user_by_id(db, current_user_id)
+    balance = calculate_user_balance(
+        db, current_user_id,
+        monthly_limit=_user.monthly_limit if _user else None,
+        daily_limit=_user.daily_limit if _user else None,
+    )
     return DeleteWithBalance(balance=balance)
