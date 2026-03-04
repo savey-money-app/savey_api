@@ -51,7 +51,7 @@ def get_user_transactions(
         if filters.max_amount:
             query = query.filter(Transaction.amount <= filters.max_amount)
 
-    return query.order_by(Transaction.date.desc()).offset(skip).limit(limit).all()
+    return query.order_by(Transaction.date.desc(), Transaction.created_at.desc()).offset(skip).limit(limit).all()
 
 
 def update_transaction(
