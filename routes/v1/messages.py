@@ -7,7 +7,9 @@ import mimetypes
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Set
+
+_bg_tasks: Set[asyncio.Task] = set()  # keep references so tasks aren't GC'd
 
 logger = logging.getLogger(__name__)
 
@@ -124,12 +126,19 @@ async def message_stream(
         user_id=current_user_id, created_at=created_at,
     ))
 
-    async def event_stream():
+    # Queue feeds chunks from the background accumulator to the SSE generator.
+    chunk_queue: asyncio.Queue = asyncio.Queue()
+
+    async def _accumulate():
+        """
+        Run independently of the HTTP connection: subscribes to Redis, feeds
+        chunks into chunk_queue, and always persists the AI message when done.
+        Runs until [DONE] or timeout — client disconnect does NOT cancel it.
+        """
         accumulated_content = []
-        done = False
         pubsub = redis.pubsub()
         await pubsub.subscribe(channel)
-        # Push AFTER subscribing to avoid missing tokens published before we listen
+        # Push AFTER subscribing to avoid missing tokens
         await redis.lpush(settings.REDIS_CHAT_QUEUE, json.dumps(job))
         try:
             deadline = datetime.utcnow().timestamp() + RESPONSE_TIMEOUT
@@ -137,56 +146,59 @@ async def message_stream(
                 if raw["type"] != "message":
                     continue
                 data = raw["data"]
+                await chunk_queue.put(data)
                 if data == "[DONE]":
-                    llm_content = "".join(
-                        c for c in accumulated_content if isinstance(c, str)
-                    )
-                    if llm_content:
-                        db_save = SessionLocal()
-                        try:
-                            db_save.execute(text("SET search_path TO savey"))
-                            create_message(db_save, MessageCreate(content=llm_content, is_user=False, had_attachment=False, user_id=current_user_id, created_at=created_at))
-                            db_save.commit()
-                        except Exception as exc:
-                            db_save.rollback()
-                            logger.error("Failed to persist AI message: %s", exc)
-                        finally:
-                            db_save.close()
-                    done = True
-                    yield "data: [DONE]\n\n"
                     break
-                # Accumulate LLM response chunks
                 try:
                     chunk = json.loads(data)
                     if isinstance(chunk, dict) and "content" in chunk:
                         accumulated_content.append(chunk["content"])
                 except (json.JSONDecodeError, TypeError):
                     accumulated_content.append(data)
-                yield f"data: {data}\n\n"
                 if datetime.utcnow().timestamp() > deadline:
-                    yield "data: [ERROR] timeout\n\n"
+                    await chunk_queue.put("[TIMEOUT]")
                     break
         finally:
             await pubsub.unsubscribe(channel)
             await pubsub.aclose()
-            # Best-effort: save partial AI response if client disconnected before [DONE]
-            if not done:
-                llm_content = "".join(c for c in accumulated_content if isinstance(c, str))
-                if llm_content:
-                    db_save = SessionLocal()
-                    try:
-                        db_save.execute(text("SET search_path TO savey"))
-                        create_message(db_save, MessageCreate(
-                            content=llm_content, is_user=False,
-                            had_attachment=False, user_id=current_user_id,
-                            created_at=created_at,
-                        ))
-                        db_save.commit()
-                    except Exception as exc:
-                        db_save.rollback()
-                        logger.error("Failed to persist partial AI message: %s", exc)
-                    finally:
-                        db_save.close()
+            # Always save AI message — even if client disconnected before [DONE]
+            llm_content = "".join(c for c in accumulated_content if isinstance(c, str))
+            if llm_content:
+                db_save = SessionLocal()
+                try:
+                    db_save.execute(text("SET search_path TO savey"))
+                    create_message(db_save, MessageCreate(
+                        content=llm_content, is_user=False,
+                        had_attachment=False, user_id=current_user_id,
+                        created_at=created_at,
+                    ))
+                    db_save.commit()
+                except Exception as exc:
+                    db_save.rollback()
+                    logger.error("Failed to persist AI message: %s", exc)
+                finally:
+                    db_save.close()
+
+    # Start background task — holds its own reference so GC won't kill it
+    task = asyncio.create_task(_accumulate())
+    _bg_tasks.add(task)
+    task.add_done_callback(_bg_tasks.discard)
+
+    async def event_stream():
+        """Drain chunk_queue and forward to the SSE client."""
+        try:
+            while True:
+                try:
+                    data = await asyncio.wait_for(chunk_queue.get(), timeout=RESPONSE_TIMEOUT)
+                except asyncio.TimeoutError:
+                    yield "data: [ERROR] timeout\n\n"
+                    break
+                if data in ("[DONE]", "[TIMEOUT]"):
+                    yield "data: [DONE]\n\n"
+                    break
+                yield f"data: {data}\n\n"
+        except GeneratorExit:
+            pass  # client disconnected — background task keeps running
 
     return StreamingResponse(
         event_stream(),
