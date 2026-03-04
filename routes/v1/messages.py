@@ -136,6 +136,8 @@ async def message_stream(
         Runs until [DONE] or timeout — client disconnect does NOT cancel it.
         """
         accumulated_content = []
+        final_balance: dict | None = None
+        final_hitl_data: dict | None = None
         pubsub = redis.pubsub()
         await pubsub.subscribe(channel)
         # Push AFTER subscribing to avoid missing tokens
@@ -151,8 +153,13 @@ async def message_stream(
                     break
                 try:
                     chunk = json.loads(data)
-                    if isinstance(chunk, dict) and "content" in chunk:
-                        accumulated_content.append(chunk["content"])
+                    if isinstance(chunk, dict):
+                        if "content" in chunk:
+                            accumulated_content.append(chunk["content"])
+                        if "balance" in chunk and chunk["balance"]:
+                            final_balance = chunk["balance"]
+                        if "hitl_data" in chunk and chunk["hitl_data"]:
+                            final_hitl_data = chunk["hitl_data"]
                 except (json.JSONDecodeError, TypeError):
                     accumulated_content.append(data)
                 if datetime.utcnow().timestamp() > deadline:
@@ -171,6 +178,8 @@ async def message_stream(
                         content=llm_content, is_user=False,
                         had_attachment=False, user_id=current_user_id,
                         created_at=created_at,
+                        balance=final_balance,
+                        hitl_data=final_hitl_data,
                     ))
                     db_save.commit()
                 except Exception as exc:

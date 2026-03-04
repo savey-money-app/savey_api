@@ -1,6 +1,6 @@
 """Message model for user chat history (one chat per user)"""
 from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 import uuid
 from datetime import datetime
@@ -17,6 +17,9 @@ class Message(Base):
     content = Column(Text, nullable=False)
     is_user = Column(Boolean, nullable=False, default=True)  # True if user sent, False if AI sent
     had_attachment = Column(Boolean, nullable=False, default=False)
+    balance = Column(JSONB, nullable=True)
+    hitl_data = Column(JSONB, nullable=True)
+    error = Column(String, nullable=True)
 
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 

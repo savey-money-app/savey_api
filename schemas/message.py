@@ -26,5 +26,7 @@ class MessageCreate(BaseModel):
     is_user: bool
     had_attachment: bool
     hitl_data: Optional[dict] = None
+    balance: Optional[dict] = None
+    error: Optional[str] = None
 
     created_at: datetime
