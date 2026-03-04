@@ -15,6 +15,9 @@ def create_message(
         content=message_data.content,
         is_user=message_data.is_user,
         had_attachment=message_data.had_attachment,
+        balance=message_data.balance,
+        hitl_data=message_data.hitl_data,
+        error=message_data.error,
     )
     db.add(message)
     db.commit()
