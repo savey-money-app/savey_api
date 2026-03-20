@@ -16,6 +16,7 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     full_name = Column(String, nullable=True)
     currency = Column(String(3), nullable=False, default="USD")
+    preferred_language = Column(String, nullable=False, default="en")
     monthly_limit = Column(Integer, nullable=True)
     daily_limit = Column(Integer, nullable=True)
 

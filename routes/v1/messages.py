@@ -37,6 +37,7 @@ RESPONSE_TIMEOUT = 300  # seconds — hard limit for the full stream (tool calls
 class UserMetadata(BaseModel):
     user_fullname: Optional[str] = None
     user_currency: str
+    user_preferred_language: str
 
 
 class ChatRequest(BaseModel):
@@ -112,7 +113,7 @@ async def message_stream(
     Both user and LLM messages are persisted after the stream completes.
     """
     user = get_user_by_id(db, current_user_id)
-    user_metadata = UserMetadata(user_fullname=user.full_name, user_currency=user.currency)
+    user_metadata = UserMetadata(user_fullname=user.full_name, user_currency=user.currency, user_preferred_language=user.preferred_language)
     had_attachment = bool(request.file_ids)
     message_id, job = _build_job(current_user_id, request, user_metadata)
     redis = await get_redis()
@@ -233,7 +234,7 @@ async def message_send(
     Both user and LLM messages are persisted to the database.
     """
     user = get_user_by_id(db, current_user_id)
-    user_metadata = UserMetadata(user_fullname=user.full_name, user_currency=user.currency)
+    user_metadata = UserMetadata(user_fullname=user.full_name, user_currency=user.currency, user_preferred_language=user.preferred_language)
     had_attachment = bool(request.file_ids)
     message_id, job = _build_job(current_user_id, request, user_metadata)
     redis = await get_redis()

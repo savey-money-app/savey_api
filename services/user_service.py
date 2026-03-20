@@ -16,7 +16,8 @@ def create_user(db: Session, user_data: UserCreate) -> User:
             email=user_data.email,
             password_hash=hashed_password,
             full_name=user_data.full_name,
-            currency=user_data.currency
+            currency=user_data.currency,
+            preferred_language=user_data.preferred_language,
         )
         db.add(user)
         db.commit()

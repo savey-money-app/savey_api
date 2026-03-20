@@ -10,6 +10,7 @@ class RegisterRequest(BaseModel):
     password: str
     full_name: Optional[str] = None
     currency: str
+    preferred_language: str
 
     @field_validator("currency")
     @classmethod

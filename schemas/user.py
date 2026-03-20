@@ -28,6 +28,7 @@ class UserCreate(BaseModel):
     password: str
     full_name: Optional[str] = None
     currency: str
+    preferred_language: str
 
     @field_validator("currency")
     @classmethod
@@ -40,6 +41,7 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     full_name: Optional[str] = None
     currency: Optional[str] = None
+    preferred_language: Optional[str] = None
     monthly_limit: Optional[int] = None
     daily_limit: Optional[int] = None
 
@@ -57,6 +59,7 @@ class UserResponse(BaseModel):
     email: str
     full_name: Optional[str] = None
     currency: str
+    preferred_language: str
     monthly_limit: Optional[int] = None
     daily_limit: Optional[int] = None
     created_at: datetime
