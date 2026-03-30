@@ -1,5 +1,5 @@
 """User schemas for requests and responses"""
-from pydantic import BaseModel, EmailStr, ConfigDict, field_validator
+from pydantic import BaseModel, EmailStr, ConfigDict, Field, field_validator
 from datetime import datetime
 from typing import Optional
 from uuid import UUID
@@ -42,8 +42,8 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     currency: Optional[str] = None
     preferred_language: Optional[str] = None
-    monthly_limit: Optional[int] = None
-    daily_limit: Optional[int] = None
+    monthly_limit: Optional[int] = Field(None, ge=1)
+    daily_limit: Optional[int] = Field(None, ge=1)
 
     @field_validator("currency")
     @classmethod
