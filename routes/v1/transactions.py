@@ -59,7 +59,7 @@ def create_new_transaction(
 @router.get("", response_model=List[TransactionResponse])
 def list_transactions(
     skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=100),
+    limit: int = Query(100, ge=1, le=2000),
     transaction_type: Optional[str] = None,
     category_id: Optional[UUID] = None,
     start_date: Optional[str] = None,
