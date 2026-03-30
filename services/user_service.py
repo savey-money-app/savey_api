@@ -38,9 +38,14 @@ def get_user_by_email(db: Session, email: str) -> Optional[User]:
     return db.query(User).filter(User.email == email).first()
 
 
-def create_user_profile(db: Session, user_id: str) -> User:
-    """Create a minimal user profile for an OAuth user (first-time Better Auth login)."""
-    user = User(id=user_id, currency='KZT')
+def create_user_profile(db: Session, user_id: str, email: Optional[str] = None) -> User:
+    """Create a minimal user profile for a Better Auth user on first getMe() call."""
+    user = User(
+        id=user_id,
+        email=email or f"{user_id}@better-auth.local",  # placeholder if no email in JWT
+        password_hash="!betterauth",  # sentinel — never matches any bcrypt hash
+        currency="KZT",
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
