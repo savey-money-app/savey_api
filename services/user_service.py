@@ -38,6 +38,15 @@ def get_user_by_email(db: Session, email: str) -> Optional[User]:
     return db.query(User).filter(User.email == email).first()
 
 
+def create_user_profile(db: Session, user_id: str) -> User:
+    """Create a minimal user profile for an OAuth user (first-time Better Auth login)."""
+    user = User(id=user_id, currency='KZT')
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 def update_user(db: Session, user_id: str, user_data: UserUpdate) -> Optional[User]:
     """Update user information"""
     user = get_user_by_id(db, user_id)

@@ -7,6 +7,10 @@ class Settings(BaseSettings):
 
     # JWT Authentication
     SECRET_KEY: str = "your-secret-key-change-this-in-production"
+    # JWT_SECRET is shared with savey_auth microservice (Better Auth).
+    # Set both to the same value in production. Defaults to SECRET_KEY for
+    # backwards compatibility during migration.
+    JWT_SECRET: str = ""
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 

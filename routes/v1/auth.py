@@ -7,7 +7,7 @@ from core.config import settings
 from core.database import get_db
 from schemas.auth import RegisterRequest, LoginRequest, TokenResponse
 from schemas.user import UserResponse, UserWithBalance
-from services.user_service import create_user, get_user_by_email, get_user_by_id
+from services.user_service import create_user, get_user_by_email, get_user_by_id, create_user_profile
 from services.transaction_service import calculate_user_balance
 from services.auth_service import verify_password, create_access_token, decode_access_token
 
@@ -59,36 +59,39 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
     return TokenResponse(access_token=access_token)
 
 
-def get_current_user(
+def _decode_token(token: str) -> Optional[dict]:
+    """
+    Decode a JWT, accepting tokens from both savey_auth (JWT_SECRET)
+    and legacy FastAPI tokens (SECRET_KEY). Deduplicates if both are equal.
+    """
+    from jose import jwt as jose_jwt, JWTError
+    jwt_secret = settings.JWT_SECRET or settings.SECRET_KEY
+    for secret in dict.fromkeys([jwt_secret, settings.SECRET_KEY]):
+        try:
+            return jose_jwt.decode(token, secret, algorithms=[settings.ALGORITHM])
+        except JWTError:
+            continue
+    return None
+
+
+def get_jwt_payload(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
+) -> dict:
+    """Return the full decoded JWT payload."""
+    payload = _decode_token(credentials.credentials)
+    if not payload or not payload.get("sub"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+        )
+    return payload
+
+
+def get_current_user(
+    payload: dict = Depends(get_jwt_payload),
 ) -> str:
-    """Dependency to get current user ID from JWT token"""
-    token = credentials.credentials
-    payload = decode_access_token(token)
-
-    if not payload:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials"
-        )
-
-    user_id = payload.get("sub")
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials"
-        )
-
-    # Verify user exists
-    user = get_user_by_id(db, user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found"
-        )
-
-    return user_id
+    """Dependency to get current user ID from JWT token (Better Auth or legacy)"""
+    return payload["sub"]
 
 
 security_optional = HTTPBearer(auto_error=False)
@@ -121,7 +124,7 @@ def get_user_internal_or_jwt(
             detail="Not authenticated",
         )
 
-    payload = decode_access_token(credentials.credentials)
+    payload = _decode_token(credentials.credentials)
     if not payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -135,28 +138,22 @@ def get_user_internal_or_jwt(
             detail="Invalid authentication credentials",
         )
 
-    user = get_user_by_id(db, user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
-        )
-
     return user_id
 
 
 @router.get("/me", response_model=UserWithBalance)
 def get_current_user_profile(
-    current_user_id: str = Depends(get_current_user),
+    jwt_payload: dict = Depends(get_jwt_payload),
     db: Session = Depends(get_db)
 ):
-    """Get current user profile with live balance"""
+    """Get current user profile with live balance. Lazy-creates profile for Better Auth users."""
+    current_user_id: str = jwt_payload["sub"]
+    email: Optional[str] = jwt_payload.get("email")
+
     user = get_user_by_id(db, current_user_id)
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
+        # First login via Better Auth (email/password or OAuth) — create profile record
+        user = create_user_profile(db, current_user_id, email=email)
 
     balance = calculate_user_balance(
         db, current_user_id,
