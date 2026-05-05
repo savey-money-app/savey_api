@@ -19,12 +19,6 @@ class Settings(BaseSettings):
     REDIS_CHAT_QUEUE: str = "chat_queue"
     REDIS_CHAT_CHANNEL_PREFIX: str = "chat"
 
-    # RabbitMQ (kept for reference, no longer used)
-    RABBITMQ_URL: str = "amqp://guest:guest@localhost:5672/"
-    RABBITMQ_EXCHANGE: str = "savey"
-    RABBITMQ_QUEUE: str = "llm_messages"
-    RABBITMQ_ROUTING_KEY: str = "llm.message"
-
     # Internal service auth (used by savey_llm to call API without user JWT)
     INTERNAL_API_TOKEN: str = "change-me-internal-secret"
 
@@ -45,3 +39,8 @@ class Settings(BaseSettings):
         case_sensitive = True
 
 settings = Settings()
+
+# SQLAlchemy 1.4+ dropped the bare "postgres://" dialect alias.
+# Managed DBs (Render, Railway, Neon) still emit it — normalise here.
+if settings.DATABASE_URL.startswith("postgres://"):
+    settings.DATABASE_URL = settings.DATABASE_URL.replace("postgres://", "postgresql://", 1)
