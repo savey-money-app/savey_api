@@ -39,7 +39,7 @@ class Settings(BaseSettings):
 
     DOCKER_CONFIG: str = "docker"
     APP_NAME: str = "savey_api"
-
+    COMPOSE_PROJECT_NAME: str = "api"
     class Config:
         env_file = ".env"
         case_sensitive = True
