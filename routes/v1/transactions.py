@@ -14,6 +14,7 @@ from schemas.transaction import (
     TransactionFilter,
     TransactionWithBalance,
     BulkTransactionWithBalance,
+    BulkDeleteWithBalance,
     DeleteWithBalance,
 )
 from services.transaction_service import (
@@ -22,6 +23,8 @@ from services.transaction_service import (
     get_user_transactions,
     update_transaction,
     delete_transaction,
+    delete_latest_transaction,
+    delete_latest_statement_transactions,
     calculate_user_balance,
 )
 from services.category_service import get_category_by_id, get_category_by_title, create_category
@@ -30,6 +33,16 @@ from schemas.category import CategoryCreate
 from routes.v1.auth import get_user_internal_or_jwt
 
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
+
+
+def _calculate_current_balance(db: Session, user_id: str):
+    user = get_user_by_id(db, user_id)
+    return calculate_user_balance(
+        db,
+        user_id,
+        monthly_limit=user.monthly_limit if user else None,
+        daily_limit=user.daily_limit if user else None,
+    )
 
 
 @router.post("", response_model=TransactionWithBalance, status_code=status.HTTP_201_CREATED)
@@ -48,12 +61,7 @@ def create_new_transaction(
         )
 
     transaction = create_transaction(db, current_user_id, transaction_data)
-    _user = get_user_by_id(db, current_user_id)
-    balance = calculate_user_balance(
-        db, current_user_id,
-        monthly_limit=_user.monthly_limit if _user else None,
-        daily_limit=_user.daily_limit if _user else None,
-    )
+    balance = _calculate_current_balance(db, current_user_id)
     return TransactionWithBalance(transaction=transaction, balance=balance)
 
 
@@ -159,7 +167,7 @@ def create_bulk_transactions(
 ):
     """Create multiple transactions from a bank statement (bulk import)."""
     import uuid as _uuid
-    statement_id = str(_uuid.uuid4())
+    statement_id = _uuid.uuid4()
     created = 0
 
     for item in payload.transactions:
@@ -187,16 +195,49 @@ def create_bulk_transactions(
             transaction_type=tx_type,
             date=tx_date,
         )
-        create_transaction(db, current_user_id, tx_data)
+        create_transaction(db, current_user_id, tx_data, statement_id=statement_id)
         created += 1
 
-    _user = get_user_by_id(db, current_user_id)
-    balance = calculate_user_balance(
-        db, current_user_id,
-        monthly_limit=_user.monthly_limit if _user else None,
-        daily_limit=_user.daily_limit if _user else None,
+    balance = _calculate_current_balance(db, current_user_id)
+    return BulkTransactionWithBalance(created_count=created, statement_id=str(statement_id), balance=balance)
+
+
+@router.delete("/last", response_model=DeleteWithBalance, status_code=status.HTTP_200_OK)
+def delete_last_transaction(
+    current_user_id: str = Depends(get_user_internal_or_jwt),
+    db: Session = Depends(get_db),
+):
+    """Delete the current user's most recently created transaction."""
+    if not delete_latest_transaction(db, current_user_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Transaction not found",
+        )
+
+    return DeleteWithBalance(balance=_calculate_current_balance(db, current_user_id))
+
+
+@router.delete(
+    "/last-statement",
+    response_model=BulkDeleteWithBalance,
+    status_code=status.HTTP_200_OK,
+)
+def delete_last_statement_transactions(
+    current_user_id: str = Depends(get_user_internal_or_jwt),
+    db: Session = Depends(get_db),
+):
+    """Delete the current user's most recent statement-import batch."""
+    deleted_count = delete_latest_statement_transactions(db, current_user_id)
+    if not deleted_count:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Statement transactions not found",
+        )
+
+    return BulkDeleteWithBalance(
+        deleted_count=deleted_count,
+        balance=_calculate_current_balance(db, current_user_id),
     )
-    return BulkTransactionWithBalance(created_count=created, statement_id=statement_id, balance=balance)
 
 
 @router.delete("/{transaction_id}", response_model=DeleteWithBalance, status_code=status.HTTP_200_OK)
@@ -213,10 +254,4 @@ def delete_existing_transaction(
             detail="Transaction not found"
         )
 
-    _user = get_user_by_id(db, current_user_id)
-    balance = calculate_user_balance(
-        db, current_user_id,
-        monthly_limit=_user.monthly_limit if _user else None,
-        daily_limit=_user.daily_limit if _user else None,
-    )
-    return DeleteWithBalance(balance=balance)
+    return DeleteWithBalance(balance=_calculate_current_balance(db, current_user_id))

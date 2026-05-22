@@ -159,7 +159,7 @@ def test_transaction_routes(monkeypatch):
     cat = category()
     tx = tx_response(cat)
     monkeypatch.setattr(transactions, "get_category_by_id", lambda *_args: cat)
-    monkeypatch.setattr(transactions, "create_transaction", lambda *_args: tx)
+    monkeypatch.setattr(transactions, "create_transaction", lambda *_args, **_kwargs: tx)
     monkeypatch.setattr(transactions, "get_user_by_id", lambda *_args: user())
     monkeypatch.setattr(transactions, "calculate_user_balance", lambda *_args, **_kwargs: balance())
     response = transactions.create_new_transaction(create_tx(cat.id), "user", None)
@@ -200,13 +200,32 @@ def test_transaction_routes(monkeypatch):
         transactions.delete_existing_transaction("tx", "user", None)
     assert delete_tx.value.status_code == 404
 
+    monkeypatch.setattr(transactions, "delete_latest_transaction", lambda *_args: True)
+    assert transactions.delete_last_transaction("user", None).balance == balance()
+    monkeypatch.setattr(transactions, "delete_latest_transaction", lambda *_args: False)
+    with pytest.raises(HTTPException) as missing_latest:
+        transactions.delete_last_transaction("user", None)
+    assert missing_latest.value.status_code == 404
+
+    monkeypatch.setattr(transactions, "delete_latest_statement_transactions", lambda *_args: 2)
+    statement_delete = transactions.delete_last_statement_transactions("user", None)
+    assert statement_delete.deleted_count == 2
+    monkeypatch.setattr(transactions, "delete_latest_statement_transactions", lambda *_args: 0)
+    with pytest.raises(HTTPException) as missing_statement:
+        transactions.delete_last_statement_transactions("user", None)
+    assert missing_statement.value.status_code == 404
+
 
 def test_bulk_transactions(monkeypatch):
     made = []
     cat = category()
     resolve_category = transactions._resolve_or_create_category
     monkeypatch.setattr(transactions, "_resolve_or_create_category", lambda *_args: cat.id)
-    monkeypatch.setattr(transactions, "create_transaction", lambda _db, _user, tx: made.append(tx))
+    monkeypatch.setattr(
+        transactions,
+        "create_transaction",
+        lambda _db, _user, tx, statement_id=None: made.append((tx, statement_id)),
+    )
     monkeypatch.setattr(transactions, "get_user_by_id", lambda *_args: user())
     monkeypatch.setattr(transactions, "calculate_user_balance", lambda *_args, **_kwargs: balance())
     payload = transactions.BulkTransactionCreate(
@@ -219,7 +238,9 @@ def test_bulk_transactions(monkeypatch):
     response = transactions.create_bulk_transactions(payload, "user", None)
 
     assert response.created_count == 2
-    assert made[0].transaction_type == TransactionType.EXPENSE
+    assert made[0][0].transaction_type == TransactionType.EXPENSE
+    assert made[0][1] == made[1][1]
+    assert response.statement_id == str(made[0][1])
     monkeypatch.setattr(transactions, "_resolve_or_create_category", resolve_category)
     existing = category()
     monkeypatch.setattr(transactions, "get_category_by_title", lambda *_args: existing)

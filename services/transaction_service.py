@@ -5,12 +5,19 @@ from sqlalchemy import and_, func
 from models.transaction import Transaction, TransactionType
 from schemas.transaction import TransactionCreate, TransactionUpdate, TransactionFilter, UserBalance
 from typing import List, Optional
+from uuid import UUID
 
 
-def create_transaction(db: Session, user_id: str, transaction_data: TransactionCreate) -> Transaction:
+def create_transaction(
+    db: Session,
+    user_id: str,
+    transaction_data: TransactionCreate,
+    statement_id: Optional[UUID] = None,
+) -> Transaction:
     """Create a new transaction"""
     transaction = Transaction(
         user_id=user_id,
+        statement_id=statement_id,
         **transaction_data.model_dump()
     )
     db.add(transaction)
@@ -83,6 +90,39 @@ def delete_transaction(db: Session, transaction_id: str, user_id: str) -> bool:
     db.delete(transaction)
     db.commit()
     return True
+
+
+def delete_latest_transaction(db: Session, user_id: str) -> bool:
+    """Delete the user's most recently created transaction."""
+    transaction = db.query(Transaction).filter(
+        Transaction.user_id == user_id
+    ).order_by(Transaction.created_at.desc()).first()
+    if not transaction:
+        return False
+
+    db.delete(transaction)
+    db.commit()
+    return True
+
+
+def delete_latest_statement_transactions(db: Session, user_id: str) -> int:
+    """Delete the user's most recent statement-import transaction batch."""
+    latest = db.query(Transaction).filter(
+        Transaction.user_id == user_id,
+        Transaction.statement_id.is_not(None),
+    ).order_by(Transaction.created_at.desc()).first()
+    if not latest:
+        return 0
+
+    transactions = db.query(Transaction).filter(
+        Transaction.user_id == user_id,
+        Transaction.statement_id == latest.statement_id,
+    ).all()
+    for transaction in transactions:
+        db.delete(transaction)
+
+    db.commit()
+    return len(transactions)
 
 
 def calculate_user_balance(

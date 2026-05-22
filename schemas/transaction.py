@@ -74,6 +74,12 @@ class BulkTransactionWithBalance(BaseModel):
     balance: UserBalance
 
 
+class BulkDeleteWithBalance(BaseModel):
+    """Response after deleting a statement transaction batch"""
+    deleted_count: int
+    balance: UserBalance
+
+
 class DeleteWithBalance(BaseModel):
     """Response after deleting a transaction"""
     balance: UserBalance

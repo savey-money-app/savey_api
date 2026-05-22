@@ -122,6 +122,7 @@ def test_transaction_service_crud_and_filters(monkeypatch):
     created = transaction_service.create_transaction(create_db, str(uuid4()), data)
 
     assert created.amount == data.amount
+    assert created.statement_id is None
     tx = SimpleNamespace(description="old")
     assert transaction_service.get_transaction_by_id(DB(Query(tx)), "tx", "user") is tx
 
@@ -150,6 +151,23 @@ def test_transaction_service_crud_and_filters(monkeypatch):
     assert delete_db.deleted == [tx]
     monkeypatch.setattr(transaction_service, "get_transaction_by_id", lambda *_args: None)
     assert not transaction_service.delete_transaction(DB(), "missing", "user")
+
+
+def test_transaction_service_deletes_latest_transaction_and_statement_batch():
+    last_transaction = SimpleNamespace(id="latest")
+    delete_latest_db = DB(Query(last_transaction))
+
+    assert transaction_service.delete_latest_transaction(delete_latest_db, "user")
+    assert delete_latest_db.deleted == [last_transaction]
+    assert not transaction_service.delete_latest_transaction(DB(Query(None)), "user")
+
+    latest_statement_transaction = SimpleNamespace(statement_id=uuid4())
+    statement_transactions = [SimpleNamespace(id="one"), SimpleNamespace(id="two")]
+    delete_statement_db = DB(Query(latest_statement_transaction), Query(statement_transactions))
+
+    assert transaction_service.delete_latest_statement_transactions(delete_statement_db, "user") == 2
+    assert delete_statement_db.deleted == statement_transactions
+    assert transaction_service.delete_latest_statement_transactions(DB(Query(None)), "user") == 0
 
 
 def test_transaction_balance_uses_income_expense_and_limits():

@@ -23,6 +23,7 @@ class Transaction(Base):
 
     amount = Column(Numeric(precision=10, scale=2), nullable=False)
     category_id = Column(UUID(as_uuid=True), ForeignKey("categories.id", ondelete="RESTRICT"), nullable=False)
+    statement_id = Column(UUID(as_uuid=True), nullable=True, index=True)
     description = Column(String, nullable=True)
     transaction_type = Column(SQLEnum(TransactionType), nullable=False)
     date = Column(Date, nullable=False)
