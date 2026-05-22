@@ -1,8 +1,7 @@
-version: '3.8'
 services:
   savey_api:
     platform: linux/amd64
-    command: bash -lc "uv run uvicorn api:app --host 0.0.0.0 --port 8000 --reload"
+    command: bash -lc "uv run alembic upgrade head && uv run uvicorn api:app --host 0.0.0.0 --port 8000 --reload"
     build: .
     container_name: savey_api
     restart: always
