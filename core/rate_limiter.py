@@ -4,7 +4,7 @@ import asyncio
 import time
 from collections import defaultdict
 from typing import Dict, Tuple
-from fastapi import Request, HTTPException
+from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 import logging
@@ -139,7 +139,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Try to acquire global semaphore
         if not self.concurrency_limiter.global_semaphore.locked():
-            acquired_global = await self.concurrency_limiter.global_semaphore.acquire()
+            await self.concurrency_limiter.global_semaphore.acquire()
         else:
             logger.warning(f"Global concurrency limit reached. User: {user_id}, Path: {path}")
             return JSONResponse(
@@ -153,7 +153,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Try to acquire user semaphore
         try:
-            acquired_user = await asyncio.wait_for(
+            await asyncio.wait_for(
                 user_semaphore.acquire(),
                 timeout=1.0,  # Don't wait more than 1 second
             )

@@ -2,8 +2,8 @@
 from sqlalchemy import Column, String, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
-from datetime import datetime
 from core.database import Base
+from core.time import utc_now
 
 
 class Category(Base):
@@ -14,5 +14,5 @@ class Category(Base):
     title = Column(String, nullable=False, unique=True)
     title_ru = Column(String, nullable=True)
 
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=utc_now)
+    updated_at = Column(DateTime, nullable=False, default=utc_now, onupdate=utc_now)

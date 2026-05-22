@@ -1,7 +1,7 @@
 """Transaction management routes"""
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from uuid import UUID

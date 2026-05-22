@@ -8,11 +8,8 @@ import uuid
 from pathlib import Path
 from typing import List, Optional, Set
 
-_bg_tasks: Set[asyncio.Task] = set()  # keep references so tasks aren't GC'd
 
-logger = logging.getLogger(__name__)
-
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -26,6 +23,10 @@ from routes.v1.auth import get_current_user
 from schemas.message import MessageResponse, MessageCreate
 from services.message_service import create_message, get_user_messages
 from services.user_service import get_user_by_id
+
+_bg_tasks: Set[asyncio.Task] = set()  # keep references so tasks aren't GC'd
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/messages", tags=["Messages"])
 

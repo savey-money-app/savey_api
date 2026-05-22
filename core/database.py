@@ -1,5 +1,5 @@
 from sqlalchemy.engine import create_engine
-from sqlalchemy.orm import Session, declarative_base, sessionmaker
+from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy import text
 from .config import settings
 

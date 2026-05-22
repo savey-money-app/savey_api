@@ -6,7 +6,7 @@ Create Date: 2026-02-02 12:00:00.000000
 
 """
 from typing import Sequence, Union
-from datetime import datetime
+from datetime import UTC, datetime
 import uuid
 
 from alembic import op
@@ -72,7 +72,7 @@ def upgrade() -> None:
         sa.column('updated_at', sa.DateTime()),
     )
 
-    now = datetime.utcnow()
+    now = datetime.now(UTC).replace(tzinfo=None)
     op.bulk_insert(categories_table, [
         {
             'id': str(uuid.uuid4()),

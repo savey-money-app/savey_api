@@ -6,12 +6,11 @@ Create Date: 2026-02-02 13:00:00.000000
 
 """
 from typing import Sequence, Union
-from datetime import datetime
+from datetime import UTC, datetime
 import uuid
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 
 
 # revision identifiers, used by Alembic.
@@ -47,7 +46,7 @@ def upgrade() -> None:
             else:
                 # Create new category
                 category_id = str(uuid.uuid4())
-                now = datetime.utcnow()
+                now = datetime.now(UTC).replace(tzinfo=None)
                 connection.execute(
                     sa.text("""
                         INSERT INTO categories (id, title, created_at, updated_at)
@@ -77,7 +76,7 @@ def upgrade() -> None:
             other_id = other_cat[0]
         else:
             other_id = str(uuid.uuid4())
-            now = datetime.utcnow()
+            now = datetime.now(UTC).replace(tzinfo=None)
             connection.execute(
                 sa.text("""
                     INSERT INTO categories (id, title, created_at, updated_at)

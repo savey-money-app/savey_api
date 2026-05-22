@@ -3,9 +3,9 @@ from sqlalchemy import Column, String, Numeric, DateTime, ForeignKey, Enum as SQ
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
-from datetime import datetime
 from enum import Enum as PyEnum
 from core.database import Base
+from core.time import utc_now
 
 
 class TransactionType(str, PyEnum):
@@ -27,8 +27,8 @@ class Transaction(Base):
     transaction_type = Column(SQLEnum(TransactionType), nullable=False)
     date = Column(Date, nullable=False)
 
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=utc_now)
+    updated_at = Column(DateTime, nullable=False, default=utc_now, onupdate=utc_now)
 
     # Relationships
     user = relationship("User", back_populates="transactions")

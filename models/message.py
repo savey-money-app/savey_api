@@ -3,9 +3,9 @@ from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 import uuid
-from datetime import datetime
 from core.database import Base
 
+from core.time import utc_now
 
 class Message(Base):
     """Message model for user's chat history"""
@@ -21,7 +21,7 @@ class Message(Base):
     hitl_data = Column(JSONB, nullable=True)
     error = Column(String, nullable=True)
 
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=utc_now)
 
     # Relationships
     user = relationship("User", back_populates="messages")

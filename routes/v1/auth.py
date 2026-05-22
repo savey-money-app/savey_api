@@ -9,7 +9,7 @@ from schemas.auth import RegisterRequest, LoginRequest, TokenResponse
 from schemas.user import UserResponse, UserWithBalance
 from services.user_service import create_user, get_user_by_email, get_user_by_id, create_user_profile
 from services.transaction_service import calculate_user_balance
-from services.auth_service import verify_password, create_access_token, decode_access_token
+from services.auth_service import verify_password, create_access_token
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 security = HTTPBearer()

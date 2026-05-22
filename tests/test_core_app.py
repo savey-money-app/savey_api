@@ -1,6 +1,4 @@
 import base64
-import sys
-from types import SimpleNamespace
 
 import pytest
 from starlette.requests import Request
@@ -50,7 +48,7 @@ async def test_docs_access_middleware():
 @pytest.mark.anyio
 async def test_user_id_middleware(monkeypatch):
     middleware = api.UserIDExtractorMiddleware(lambda *_args: None)
-    monkeypatch.setitem(sys.modules, "jwt", SimpleNamespace(decode=lambda *_args, **_kwargs: {"sub": "user"}))
+    monkeypatch.setattr(api.jwt, "decode", lambda *_args, **_kwargs: {"sub": "user"})
 
     async def call_next(value):
         assert value.state.user_id == "user"
@@ -63,9 +61,9 @@ async def test_user_id_middleware(monkeypatch):
     assert response.body == b"ok"
 
     def explode(*_args, **_kwargs):
-        raise ValueError("bad token")
+        raise api.JWTError("bad token")
 
-    monkeypatch.setitem(sys.modules, "jwt", SimpleNamespace(decode=explode))
+    monkeypatch.setattr(api.jwt, "decode", explode)
     async def invalid_next(_request):
         return Response("ok")
 
