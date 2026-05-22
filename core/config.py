@@ -1,9 +1,10 @@
-from pydantic_settings import BaseSettings
-from typing import Optional
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    # Database (Neon PostgreSQL) - Using 'savey' schema
-    DATABASE_URL: str = "postgresql://neondb_owner:npg_zOQAHDxvM5h7@ep-green-pine-a2y91p4h-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require"
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True, extra="ignore")
+
+    # Production supplies its managed database URL through the environment.
+    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/savey"
 
     # JWT Authentication
     SECRET_KEY: str = "your-secret-key-change-this-in-production"
@@ -34,10 +35,6 @@ class Settings(BaseSettings):
     DOCKER_CONFIG: str = "docker"
     APP_NAME: str = "savey_api"
     COMPOSE_PROJECT_NAME: str = "api"
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
-
 settings = Settings()
 
 # SQLAlchemy 1.4+ dropped the bare "postgres://" dialect alias.

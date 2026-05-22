@@ -18,3 +18,13 @@ dependencies = [
     "psycopg2-binary>=2.9.9",
     "python-multipart>=0.0.22",
 ]
+
+[tool.pytest.ini_options]
+addopts = "--cov=api --cov=core --cov=models --cov=routes --cov=schemas --cov=services --cov-report=term-missing --cov-fail-under=95"
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "pytest-cov>=7.0.0",
+]
