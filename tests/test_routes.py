@@ -6,6 +6,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException, UploadFile
+from sqlalchemy.exc import IntegrityError
 
 from models.transaction import TransactionType
 from routes.v1 import categories, files, transactions, users
@@ -112,7 +113,22 @@ def test_category_routes(monkeypatch):
     monkeypatch.setattr(categories, "delete_category", lambda *_args: False)
     with pytest.raises(HTTPException) as delete_missing:
         categories.delete_existing_category("id", "user", None)
-    assert delete_missing.value.status_code == 400
+    assert delete_missing.value.status_code == 404
+
+    rolled_back = []
+
+    def integrity_failure(*_args):
+        raise IntegrityError("delete", {}, Exception("in use"))
+
+    monkeypatch.setattr(categories, "delete_category", integrity_failure)
+    with pytest.raises(HTTPException) as delete_in_use:
+        categories.delete_existing_category(
+            "id",
+            "user",
+            SimpleNamespace(rollback=lambda: rolled_back.append(True)),
+        )
+    assert delete_in_use.value.status_code == 400
+    assert rolled_back == [True]
 
 
 def test_user_routes(monkeypatch):

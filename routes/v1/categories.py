@@ -1,5 +1,6 @@
 """Category management routes"""
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from typing import List
 from core.database import get_db
@@ -87,14 +88,16 @@ def delete_existing_category(
     """Delete a category (requires authentication, will fail if transactions use it)"""
     try:
         success = delete_category(db, category_id)
-        if not success:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Category not found"
-            )
-    except Exception:
+    except IntegrityError:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot delete category that is used by transactions"
+        )
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Category not found"
         )
     return None
