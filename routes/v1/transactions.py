@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from uuid import UUID
 from core.database import get_db
+from core.time import utc_now
 from schemas.transaction import (
     TransactionCreate,
     TransactionUpdate,
@@ -175,9 +176,9 @@ def create_bulk_transactions(
             try:
                 tx_date = datetime.fromisoformat(item.date).date()
             except ValueError:
-                tx_date = datetime.utcnow().date()
+                tx_date = utc_now().date()
         else:
-            tx_date = datetime.utcnow().date()
+            tx_date = utc_now().date()
 
         tx_data = TransactionCreate(
             amount=abs(item.amount),

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -11,6 +11,7 @@ from routes.v1 import auth as auth_routes
 from schemas.auth import LoginRequest, RegisterRequest
 from schemas.transaction import UserBalance
 from schemas.user import UserResponse
+from core.time import utc_now
 
 
 def credentials(token: str) -> HTTPAuthorizationCredentials:
@@ -18,12 +19,12 @@ def credentials(token: str) -> HTTPAuthorizationCredentials:
 
 
 def encoded_token(secret: str, payload: dict) -> str:
-    claims = {"exp": datetime.utcnow() + timedelta(minutes=1), **payload}
+    claims = {"exp": utc_now() + timedelta(minutes=1), **payload}
     return jwt.encode(claims, secret, algorithm=auth_routes.settings.ALGORITHM)
 
 
 def fake_user(user_id=None):
-    now = datetime.utcnow()
+    now = utc_now()
     return SimpleNamespace(
         id=user_id or uuid4(),
         email="person@example.com",

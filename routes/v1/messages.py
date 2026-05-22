@@ -5,7 +5,6 @@ import json
 import logging
 import mimetypes
 import uuid
-from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Set
 
@@ -21,6 +20,7 @@ from sqlalchemy.orm import Session
 from core.config import settings
 from core.database import get_db, SessionLocal
 from core.redis import get_redis
+from core.time import utc_now
 from sqlalchemy import text
 from routes.v1.auth import get_current_user
 from schemas.message import MessageResponse, MessageCreate
@@ -91,7 +91,7 @@ def _build_job(user_id: str, request: ChatRequest, user_metadata: UserMetadata) 
         "user_id": user_id,
         "message_id": message_id,
         "content": request.message,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": utc_now().isoformat(),
         "user_metadata": user_metadata.model_dump(),
         "attachments": _resolve_attachments(request.file_ids),
     }
@@ -120,7 +120,7 @@ async def message_stream(
     channel = f"{settings.REDIS_CHAT_CHANNEL_PREFIX}:{message_id}"
 
     # Save user message immediately — guaranteed regardless of client disconnect
-    created_at = datetime.utcnow()
+    created_at = utc_now()
     create_message(db, MessageCreate(
         content=request.message, is_user=True,
         had_attachment=had_attachment,
@@ -144,7 +144,7 @@ async def message_stream(
         # Push AFTER subscribing to avoid missing tokens
         await redis.lpush(settings.REDIS_CHAT_QUEUE, json.dumps(job))
         try:
-            deadline = datetime.utcnow().timestamp() + RESPONSE_TIMEOUT
+            deadline = asyncio.get_running_loop().time() + RESPONSE_TIMEOUT
             async for raw in pubsub.listen():
                 if raw["type"] != "message":
                     continue
@@ -163,7 +163,7 @@ async def message_stream(
                             final_hitl_data = chunk["hitl_data"]
                 except (json.JSONDecodeError, TypeError):
                     accumulated_content.append(data)
-                if datetime.utcnow().timestamp() > deadline:
+                if asyncio.get_running_loop().time() > deadline:
                     await chunk_queue.put("[TIMEOUT]")
                     break
         finally:
@@ -267,7 +267,7 @@ async def message_send(
 
     # Persist both messages (skip if LLM returned empty content)
     llm_content = payload.get("content", "") if isinstance(payload, dict) else str(payload)
-    created_at = datetime.utcnow()
+    created_at = utc_now()
     if llm_content:
         create_message(db, MessageCreate(content=request.message, is_user=True, had_attachment=had_attachment, user_id=current_user_id, created_at=created_at))
         create_message(db, MessageCreate(content=llm_content, is_user=False, had_attachment=False, user_id=current_user_id, created_at=created_at))

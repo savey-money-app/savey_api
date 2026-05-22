@@ -1,24 +1,23 @@
+from contextlib import asynccontextmanager
+import logging
+
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from routes import router
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
+
 from core import settings
 from core.rate_limiter import RateLimitMiddleware
-from starlette.responses import Response
-from fastapi.middleware.cors import CORSMiddleware
-import logging
+from routes import router
 
 logging.basicConfig(
     level=logging.INFO,  # or DEBUG for more verbosity
     format="%(asctime)s %(levelname)s %(name)s %(message)s"
 )
 
-app = FastAPI()
-
-# Middleware для проверки доступа к странице документации с базовой авторизацией
 security = HTTPBasic(auto_error=False)
-
-from starlette.middleware.base import BaseHTTPMiddleware
 
 class DocsAccessMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -49,40 +48,13 @@ class UserIDExtractorMiddleware(BaseHTTPMiddleware):
                 user_id = payload.get("sub")
                 if user_id:
                     request.state.user_id = user_id
-            except:
+            except Exception:
                 # Invalid token, continue without user_id
                 pass
 
         response = await call_next(request)
         return response
 
-app.add_middleware(TrustedHostMiddleware)
-app.add_middleware(DocsAccessMiddleware)
-
-# Extract user_id from JWT token for rate limiting (must be before RateLimitMiddleware)
-app.add_middleware(UserIDExtractorMiddleware)
-
-# Add rate limiting and concurrency control
-app.add_middleware(
-    RateLimitMiddleware,
-    rate_limit_requests=60,  # 60 requests per minute per user (less strict)
-    rate_limit_window=60,
-    max_concurrent_per_user=5,  # Max 5 concurrent requests per user (increased from 3)
-    max_concurrent_global=100,  # Max 100 total concurrent requests (increased from 50)
-    excluded_paths=["/docs", "/redoc", "/openapi.json", "/api/v1/llm/health"],
-)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"], # TODO: change to configs.ALLOWED_HOSTS
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-# Startup and shutdown events
-@app.on_event("startup")
 async def startup_event():
     """Initialize Redis connection on startup"""
     from core.redis import get_redis
@@ -94,7 +66,6 @@ async def startup_event():
         logging.error(f"Failed to connect to Redis: {e}")
 
 
-@app.on_event("shutdown")
 async def shutdown_event():
     """Close Redis connection on shutdown"""
     from core.redis import close_redis
@@ -105,4 +76,34 @@ async def shutdown_event():
         logging.error(f"Error closing Redis connection: {e}")
 
 
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    await startup_event()
+    try:
+        yield
+    finally:
+        await shutdown_event()
+
+
+app = FastAPI(lifespan=lifespan)
+app.add_middleware(TrustedHostMiddleware)
+app.add_middleware(DocsAccessMiddleware)
+
+# Extract user_id from JWT token for rate limiting (must be before RateLimitMiddleware).
+app.add_middleware(UserIDExtractorMiddleware)
+app.add_middleware(
+    RateLimitMiddleware,
+    rate_limit_requests=60,
+    rate_limit_window=60,
+    max_concurrent_per_user=5,
+    max_concurrent_global=100,
+    excluded_paths=["/docs", "/redoc", "/openapi.json", "/api/v1/llm/health"],
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # TODO: restrict via configuration.
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(router)

@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
 from io import BytesIO
 from types import SimpleNamespace
@@ -12,6 +12,7 @@ from routes.v1 import categories, files, transactions, users
 from schemas.category import CategoryCreate, CategoryUpdate
 from schemas.transaction import TransactionCreate, TransactionUpdate, UserBalance
 from schemas.user import UserUpdate
+from core.time import utc_now
 
 
 def balance():
@@ -25,7 +26,7 @@ def balance():
 
 
 def user(user_id=None):
-    now = datetime.utcnow()
+    now = utc_now()
     return SimpleNamespace(
         id=user_id or uuid4(),
         email="person@example.com",
@@ -44,7 +45,7 @@ def category(category_id=None):
 
 
 def tx_response(cat):
-    now = datetime.utcnow()
+    now = utc_now()
     return SimpleNamespace(
         id=uuid4(),
         user_id=uuid4(),

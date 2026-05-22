@@ -1,8 +1,6 @@
 from sqlalchemy.engine import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.orm import Session
-from sqlalchemy import event, text
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
+from sqlalchemy import text
 from .config import settings
 
 
@@ -37,4 +35,3 @@ def get_db():
         raise
     finally:
         db.close()
-
